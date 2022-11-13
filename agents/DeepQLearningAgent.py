@@ -4,7 +4,7 @@ from tensorflow.keras.optimizers import RMSprop
 from tensorflow.keras.layers import Input, Conv2D, Flatten, Dense
 from tensorflow.keras import Model
 from agents.agent import Agent
-from agents.agent import  mean_huber_loss
+from agents.agent import mean_huber_loss
 
 
 class DeepQLearningAgent(Agent):
@@ -12,11 +12,13 @@ class DeepQLearningAgent(Agent):
     def __init__(self, board_size=10, frames=4, buffer_size=10000, gamma=0.99, n_actions=3, use_target_net=True,
                  version=''):
         super().__init__(board_size, frames, buffer_size, gamma, n_actions, use_target_net, version)
+        self._target_net = None
+        self._model = None
         self.reset_models()
 
     def reset_models(self):
         self._model = self._agent_model()
-        if (self._use_target_net):
+        if self._use_target_net:
             self._target_net = self._agent_model()
             self.update_target_net()
 
