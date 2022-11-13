@@ -1,11 +1,9 @@
-import numpy as np
-from agent import DeepQLearningAgent, BreadthFirstSearchAgent
+from Agents.agent import DeepQLearningAgent
 from game_environment import Snake
 import matplotlib.pyplot as plt
 from tensorflow.keras import Model
 import json
 import os
-import sys
 
 # some global variables
 version = 'v15.1'
