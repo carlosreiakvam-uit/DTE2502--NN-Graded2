@@ -1,43 +1,19 @@
 import tensorflow as tf
+import numpy as np
 from tensorflow.keras.regularizers import l2
-from tensorflow.keras.layers import Input, Conv2D, Flatten, Dense, Softmax, MaxPool2D
+from tensorflow.keras.layers import Input, Conv2D, Flatten, Dense
 from tensorflow.keras import Model
 from agents.PolicyGradientAgent import PolicyGradientAgent
+from agents.agent import mean_huber_loss
 
 
-class AdvantageActorCriticAgent(PolicyGradientAgent):  # had (PolicyGradientAgent)
-    """This agent uses the Advantage Actor Critic method to train
-    the reinforcement learning agent, we will use Q actor critic here
-
-    Attributes
-    ----------
-    _action_values_model : Tensorflow Graph
-        Contains the network for the action values calculation model
-    _actor_update : function
-        Custom function to prepare the
-    """
-
+class AdvantageActorCriticAgent(PolicyGradientAgent):
     def __init__(self, board_size=10, frames=4, buffer_size=10000, gamma=0.99, n_actions=3, use_target_net=True,
                  version=''):
         super().__init__(board_size, frames, buffer_size, gamma, n_actions, use_target_net, version)
-        # DeepQLearningAgent.__init__(self, board_size=board_size, frames=frames,
-        #                             buffer_size=buffer_size, gamma=gamma,
-        #                             n_actions=n_actions, use_target_net=use_target_net,
-        #                             version=version)
         self._optimizer = tf.keras.optimizers.RMSprop(5e-4)
 
     def _agent_model(self):
-        """Returns the models which evaluate prob logits and action values
-        for a given state input, Model is compiled in a different function
-        Overrides parent
-
-        Returns
-        -------
-        model_logits : TensorFlow Graph
-            A2C model graph for action logits
-        model_full : TensorFlow Graph
-            A2C model complete graph
-        """
         input_board = Input((self._board_size, self._board_size, self._n_frames,))
         x = Conv2D(16, (3, 3), activation='relu', data_format='channels_last')(input_board)
         x = Conv2D(32, (3, 3), activation='relu', data_format='channels_last')(x)
@@ -54,25 +30,12 @@ class AdvantageActorCriticAgent(PolicyGradientAgent):  # had (PolicyGradientAgen
         return model_logits, model_full, model_values
 
     def reset_models(self):
-        """ Reset all the models by creating new graphs"""
         self._model, self._full_model, self._values_model = self._agent_model()
         if (self._use_target_net):
             _, _, self._target_net = self._agent_model()
             self.update_target_net()
 
     def save_model(self, file_path='', iteration=None):
-        """Save the current models to disk using tensorflow's
-        inbuilt save model function (saves in h5 format)
-        saving weights instead of model as cannot load compiled
-        model with any kind of custom object (loss or metric)
-
-        Parameters
-        ----------
-        file_path : str, optional
-            Path where to save the file
-        iteration : int, optional
-            Iteration number to tag the file name with, if None, iteration is 0
-        """
         if (iteration is not None):
             assert isinstance(iteration, int), "iteration should be an integer"
         else:
@@ -84,23 +47,6 @@ class AdvantageActorCriticAgent(PolicyGradientAgent):  # had (PolicyGradientAgen
             self._target_net.save_weights("{}/model_{:04d}_target.h5".format(file_path, iteration))
 
     def load_model(self, file_path='', iteration=None):
-        """ load any existing models, if available """
-        """Load models from disk using tensorflow's
-        inbuilt load model function (model saved in h5 format)
-
-        Parameters
-        ----------
-        file_path : str, optional
-            Path where to find the file
-        iteration : int, optional
-            Iteration number the file is tagged with, if None, iteration is 0
-
-        Raises
-        ------
-        FileNotFoundError
-            The file is not loaded if not found and an error message is printed,
-            this error does not affect the functioning of the program
-        """
         if (iteration is not None):
             assert isinstance(iteration, int), "iteration should be an integer"
         else:
@@ -112,38 +58,11 @@ class AdvantageActorCriticAgent(PolicyGradientAgent):  # had (PolicyGradientAgen
             self._target_net.load_weights("{}/model_{:04d}_target.h5".format(file_path, iteration))
 
     def update_target_net(self):
-        """Update the weights of the target network, which is kept
-        static for a few iterations to stabilize the other network.
-        This should not be updated very frequently
-        """
         if (self._use_target_net):
             self._target_net.set_weights(self._values_model.get_weights())
 
     def train_agent(self, batch_size=32, beta=0.001, normalize_rewards=False,
                     num_games=1, reward_clip=False):
-        """Train the model by sampling from buffer and return the error
-        The buffer is assumed to contain all states of a finite set of games
-        and is fully sampled from the buffer
-        Overrides parent
-
-        Parameters
-        ----------
-        batch_size : int, optional
-            Not used here, kept for consistency with other agents
-        beta : float, optional
-            The weight for the policy gradient entropy loss
-        normalize_rewards : bool, optional
-            Whether to normalize rewards for stable training
-        num_games : int, optional
-            Not used here, kept for consistency with other agents
-        reward_clip : bool, optional
-            Not used here, kept for consistency with other agents
-
-        Returns
-        -------
-        error : list
-            The current loss (total loss, actor loss, critic loss)
-        """
         # in policy gradient, only one complete episode is used for training
         s, a, r, next_s, done, _ = self._buffer.sample(self._buffer.get_current_size())
         s_prepared = self._prepare_input(s)

@@ -1,42 +1,19 @@
 import tensorflow as tf
 from tensorflow.keras.regularizers import l2
-from tensorflow.keras.layers import Input, Conv2D, Flatten, Dense, Softmax, MaxPool2D
+from tensorflow.keras.layers import Input, Conv2D, Flatten, Dense
 from tensorflow.keras import Model
 from tensorflow.keras.regularizers import l2
 from agents.DeepQLearningAgent import DeepQLearningAgent
 
 
 class PolicyGradientAgent(DeepQLearningAgent):
-    """This agent learns via Policy Gradient method
-
-    Attributes
-    ----------
-    _update_function : function
-        defines the policy update function to use while training
-    """
 
     def __init__(self, board_size=10, frames=4, buffer_size=10000, gamma=0.99, n_actions=3, use_target_net=False,
                  version=''):
-        """Initializer for PolicyGradientAgent, similar to DeepQLearningAgent
-        but does an extra assignment to the training function
-        """
-        # DeepQLearningAgent.__init__(self, board_size=board_size, frames=frames,
-        #                             buffer_size=buffer_size, gamma=gamma,
-        #                             n_actions=n_actions, use_target_net=False,
-        #                             version=version)
         super().__init__(board_size, frames, buffer_size, gamma, n_actions, use_target_net, version)
         self._actor_optimizer = tf.keras.optimizer.Adam(1e-6)
 
     def _agent_model(self):
-        """Returns the model which evaluates prob values for a given state input
-        Model is compiled in a different function
-        Overrides parent
-
-        Returns
-        -------
-        model : TensorFlow Graph
-            Policy Gradient model graph
-        """
         input_board = Input((self._board_size, self._board_size, self._n_frames,))
         x = Conv2D(16, (4, 4), activation='relu', data_format='channels_last', kernel_regularizer=l2(0.01))(input_board)
         x = Conv2D(32, (4, 4), activation='relu', data_format='channels_last', kernel_regularizer=l2(0.01))(x)
@@ -52,29 +29,6 @@ class PolicyGradientAgent(DeepQLearningAgent):
 
     def train_agent(self, batch_size=32, beta=0.1, normalize_rewards=False,
                     num_games=1, reward_clip=False):
-        """Train the model by sampling from buffer and return the error
-        The buffer is assumed to contain all states of a finite set of games
-        and is fully sampled from the buffer
-        Overrides parent
-
-        Parameters
-        ----------
-        batch_size : int, optional
-            Not used here, kept for consistency with other agents
-        beta : float, optional
-            The weight for the entropy loss
-        normalize_rewards : bool, optional
-            Whether to normalize rewards for stable training
-        num_games : int, optional
-            Total games played in the current batch
-        reward_clip : bool, optional
-            Not used here, kept for consistency with other agents
-
-        Returns
-        -------
-        error : list
-            The current loss (total loss, classification loss, entropy)
-        """
         # in policy gradient, only complete episodes are used for training
         s, a, r, _, _, _ = self._buffer.sample(self._buffer.get_current_size())
         # unlike DQN, the discounted reward is not estimated but true one
