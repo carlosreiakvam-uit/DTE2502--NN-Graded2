@@ -3,20 +3,8 @@ store all the agents here
 """
 from replay_buffer import ReplayBuffer, ReplayBufferNumpy
 import numpy as np
-import time
 import pickle
-from collections import deque
-import json
 import tensorflow as tf
-from tensorflow.keras.regularizers import l2
-from tensorflow.keras.optimizers import RMSprop, SGD, Adam
-import tensorflow.keras.backend as K
-from tensorflow.keras.layers import Input, Conv2D, Flatten, Dense, Softmax, MaxPool2D
-from tensorflow.keras import Model
-from tensorflow.keras.regularizers import l2
-
-
-# from tensorflow.keras.losses import Huber
 
 def huber_loss(y_true, y_pred, delta=1):
     """Keras implementation for huber loss
@@ -65,7 +53,7 @@ def mean_huber_loss(y_true, y_pred, delta=1):
     return tf.reduce_mean(huber_loss(y_true, y_pred, delta))
 
 
-class Agent: # was Agent()
+class Agent:
     """Base class for all agents
     This class extends to the following classes
     DeepQLearningAgent

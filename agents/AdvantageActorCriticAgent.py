@@ -1,6 +1,11 @@
 import tensorflow as tf
+from tensorflow.keras.regularizers import l2
+from tensorflow.keras.layers import Input, Conv2D, Flatten, Dense, Softmax, MaxPool2D
+from tensorflow.keras import Model
+from agents.PolicyGradientAgent import PolicyGradientAgent
 
-class AdvantageActorCriticAgent: # had (PolicyGradientAgent)
+
+class AdvantageActorCriticAgent(PolicyGradientAgent):  # had (PolicyGradientAgent)
     """This agent uses the Advantage Actor Critic method to train
     the reinforcement learning agent, we will use Q actor critic here
 
@@ -12,9 +17,9 @@ class AdvantageActorCriticAgent: # had (PolicyGradientAgent)
         Custom function to prepare the
     """
 
-    def __init__(self, board_size=10, frames=4, buffer_size=10000,
-                 gamma=0.99, n_actions=3, use_target_net=True,
+    def __init__(self, board_size=10, frames=4, buffer_size=10000, gamma=0.99, n_actions=3, use_target_net=True,
                  version=''):
+        super().__init__(board_size, frames, buffer_size, gamma, n_actions, use_target_net, version)
         # DeepQLearningAgent.__init__(self, board_size=board_size, frames=frames,
         #                             buffer_size=buffer_size, gamma=gamma,
         #                             n_actions=n_actions, use_target_net=use_target_net,
