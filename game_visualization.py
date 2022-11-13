@@ -10,7 +10,7 @@ import json
 # import keras.backend as K
 
 # some global variables
-version = 'v18_carl'
+version = 'v17.1'
 
 with open('model_config/{:s}.json'.format(version), 'r') as f:
     m = json.loads(f.read())

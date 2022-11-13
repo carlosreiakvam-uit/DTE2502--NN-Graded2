@@ -18,9 +18,9 @@ from agent import DeepQLearningAgent, PolicyGradientAgent,\
 import json
 
 # some global variables
-tf.random.set_seed(42)
-version = 'v18_carl'
-
+tf.set_random_seed(42)
+# tf.random.set_seed(42)
+version = 'v17.1'
 # get training configurations
 with open('model_config/{:s}.json'.format(version), 'r') as f:
     m = json.loads(f.read())
