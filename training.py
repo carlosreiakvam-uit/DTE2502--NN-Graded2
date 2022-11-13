@@ -52,8 +52,8 @@ else:
     n_games_training = 32
     decay = 1
 
+# play some games initially to fill the buffer
 if agent_type == 'DQN':
-    # play some games initially to fill the buffer
     # or load from an existing buffer (supervised)
     if supervised:
         try:
