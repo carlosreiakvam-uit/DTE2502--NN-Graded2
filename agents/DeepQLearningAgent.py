@@ -1,4 +1,4 @@
-class DeepQLearningAgent:
+class DeepQLearningAgent: # was (Agent)
     """This agent learns the game via Q learning
     model outputs everywhere refers to Q values
     This class extends to the following classes
@@ -13,16 +13,16 @@ class DeepQLearningAgent:
         Stores the target network graph of the DQN model
     """
 
-    def __init__(self, agent, board_size=10, frames=4, buffer_size=10000,
+    def __init__(self,  board_size=10, frames=4, buffer_size=10000,
                  gamma=0.99, n_actions=3, use_target_net=True,
                  version=''):
         """Initializer for DQN agent, arguments are same as Agent class
         except use_target_net is by default True and we call and additional
         reset models method to initialize the DQN networks
         """
-        agent.__init__(self, board_size=board_size, frames=frames, buffer_size=buffer_size,
-                       gamma=gamma, n_actions=n_actions, use_target_net=use_target_net,
-                       version=version)
+        # agent.__init__(self, board_size=board_size, frames=frames, buffer_size=buffer_size,
+        #                gamma=gamma, n_actions=n_actions, use_target_net=use_target_net,
+        #                version=version)
         self.reset_models()
 
     def reset_models(self):

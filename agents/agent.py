@@ -65,7 +65,7 @@ def mean_huber_loss(y_true, y_pred, delta=1):
     return tf.reduce_mean(huber_loss(y_true, y_pred, delta))
 
 
-class Agent():
+class Agent: # was Agent()
     """Base class for all agents
     This class extends to the following classes
     DeepQLearningAgent

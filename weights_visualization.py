@@ -1,4 +1,4 @@
-from Agents.agent import DeepQLearningAgent
+from agents.agent import DeepQLearningAgent
 from game_environment import Snake
 import matplotlib.pyplot as plt
 from tensorflow.keras import Model

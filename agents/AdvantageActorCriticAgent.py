@@ -1,4 +1,6 @@
-class AdvantageActorCriticAgent(PolicyGradientAgent):
+import tensorflow as tf
+
+class AdvantageActorCriticAgent: # had (PolicyGradientAgent)
     """This agent uses the Advantage Actor Critic method to train
     the reinforcement learning agent, we will use Q actor critic here
 
@@ -13,10 +15,10 @@ class AdvantageActorCriticAgent(PolicyGradientAgent):
     def __init__(self, board_size=10, frames=4, buffer_size=10000,
                  gamma=0.99, n_actions=3, use_target_net=True,
                  version=''):
-        DeepQLearningAgent.__init__(self, board_size=board_size, frames=frames,
-                                    buffer_size=buffer_size, gamma=gamma,
-                                    n_actions=n_actions, use_target_net=use_target_net,
-                                    version=version)
+        # DeepQLearningAgent.__init__(self, board_size=board_size, frames=frames,
+        #                             buffer_size=buffer_size, gamma=gamma,
+        #                             n_actions=n_actions, use_target_net=use_target_net,
+        #                             version=version)
         self._optimizer = tf.keras.optimizers.RMSprop(5e-4)
 
     def _agent_model(self):

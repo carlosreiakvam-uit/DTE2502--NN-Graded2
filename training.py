@@ -10,8 +10,11 @@ import time
 from utils import play_game2
 from game_environment import SnakeNumpy
 import tensorflow as tf
-from Agents.agent import DeepQLearningAgent, PolicyGradientAgent,\
-                AdvantageActorCriticAgent
+# from agents.agent import DeepQLearningAgent, PolicyGradientAgent,\
+# #                 AdvantageActorCriticAgent
+from agents.DeepQLearningAgent import DeepQLearningAgent
+from agents.PolicyGradientAgent import PolicyGradientAgent
+from agents.AdvantageActorCriticAgent import AdvantageActorCriticAgent
 import json
 
 # some global variables
