@@ -27,11 +27,13 @@ class QNetwork(nn.Module):
 
                 self.layers.append(conv2d)
                 self.last_out = vals['filters']  # update last out to be used for inputs
+                continue
 
-            if 'Flatten' in layer:
+            elif 'Flatten' in layer:
                 self.layers.append(torch.flatten)
+                continue
 
-            if 'Dense' in layer:
+            elif 'Dense' in layer:
                 dense = {
                     'layer': nn.Linear(in_features=self.last_out, out_features=vals['units']),
                     'activation': nn.ReLU if vals['activation'] == 'relu' else nn.ReLU}
