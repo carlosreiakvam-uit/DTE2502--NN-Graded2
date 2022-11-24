@@ -42,8 +42,7 @@ class QNetwork(nn.Module):
                 self.layers.append(nn.ReLU())
                 self.last_out = vals['units']
 
-    def forward(self):
-        for layer in self.layers:
-            x = layer['model']
-            x = layer['activation']
+    def forward(self, x):
+        for layer in self.conv:
+            x = layer(x)
         return x
