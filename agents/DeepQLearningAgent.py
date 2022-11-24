@@ -62,30 +62,11 @@ class DeepQLearningAgent(Agent):
 
         return QNetwork(model, self.seed)
 
+        # TODO: Dette burde sikkert også implementeres
         # input_board = Input((self._board_size, self._board_size, self._n_frames,), name='input')
-        # input_tensor = torch.randn(1, 3, 32, 32)
-
-        # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-        # q_net = QNetwork(self._board_size, self._n_frames, self.seed).to(device)
-        # input_board = torch.tensor([self._board_size, self._board_size, self._n_frames])
-        # x = q_net
-
-        #### Skipper denne for nå
-        # for layer in m['model']:
-        #     l = m['model'][layer]
-        #     if 'Conv2D' in layer:
-        #         nn.Conv2d(in_channels=3, out_channels=l['filters'], kernel_size=l['kernel_size'])(x)
-        #     if 'Flatten' in layer:
-        #         torch.flatten(x)
-        # if 'Dense' in layer:
-        #     x = nn.Linear(10, 2) # tatt fra luft
-
         # out = Dense(self._n_actions, activation='linear', name='action_values')(x)
         # model = Model(inputs=input_board, outputs=out)  # Keras model
         # model.compile(optimizer=RMSprop(0.0005), loss=mean_huber_loss)
-        #
-        # return model
 
     def set_weights_trainable(self):
         """Set selected layers to non trainable and compile the model"""
@@ -155,8 +136,10 @@ class DeepQLearningAgent(Agent):
         return loss
 
     def update_target_net(self):
-        if self._use_target_net:
-            self._target_net.set_weights(self._model.get_weights())
+        # TODO: Implementer?
+        # if self._use_target_net:
+        #     self._target_net.set_weights(self._model.get_weights())
+        pass
 
     def compare_weights(self):
         for i in range(len(self._model.layers)):

@@ -34,7 +34,6 @@ agent_type = 'DQN'
 if agent_type == 'DQN':
     agent = DeepQLearningAgent(board_size=board_size, frames=frames, n_actions=n_actions,
                                buffer_size=buffer_size, version=version, seed=seed)
-    # agent = q_net = QNetwork(board_size, 10, seed).to(device)
 
     epsilon, epsilon_end = 1, 0.01
     reward_type = 'current'
