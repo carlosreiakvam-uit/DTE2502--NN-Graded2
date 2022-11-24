@@ -10,30 +10,36 @@ class QNetwork(nn.Module):
 
         self.seed = torch.manual_seed(seed)
         self.layers = []
+        self.last_out = 4
 
         for layer in model:
             vals = model[layer]
+
             if 'Conv2D' in layer:
                 conv2d = {
-                    'layer': nn.Conv2d(in_channels=10, out_channels=vals['filters'], kernel_size=vals['kernel_size']),
-                    'activation': vals['activation']}
-                self.layers.append(conv2d)
+                    'layer': nn.Conv2d(
+                        in_channels=self.last_out,
+                        out_channels=vals['filters'],
+                        kernel_size=vals['kernel_size'],
+                        padding=vals['padding'] if "padding" in vals else 0,
+                        stride=vals['stride'] if "stride" in vals else 1),
+                    'activation': nn.ReLU if vals['activation'] == 'relu' else nn.ReLU}
 
-            if 'Flatten' in layer and len(vals) > 0:
-                flatten = {torch.flatten}
-                self.layers.append(flatten)
+                self.layers.append(conv2d)
+                self.last_out = vals['filters']  # update last out to be used for inputs
+
+            if 'Flatten' in layer:
+                self.layers.append(torch.flatten)
 
             if 'Dense' in layer:
                 dense = {
-                    'layer': nn.Linear(in_channels=10, out_channels=vals['filters']),
-                    'activation': vals['activation']}
+                    'layer': nn.Linear(in_features=self.last_out, out_features=vals['units']),
+                    'activation': nn.ReLU if vals['activation'] == 'relu' else nn.ReLU}
                 self.layers.append(dense)
+                self.last_out = vals['units']
 
-            self.out = nn.Linear(2, 10)  # må vel ha en utgang men verdier er tatt fra luft og kjærlighet
-
-        def forward(self):
-            x = nn.Linear(10, 2)  # input verdier kun tatt fra tynn luft
-            for layer in self.layers:
-                x = layer(x)
-
-            return self.fc3(x)
+    def forward(self):
+        for layer in self.layers:
+            x = layer['model']
+            x = layer['activation']
+        return x
