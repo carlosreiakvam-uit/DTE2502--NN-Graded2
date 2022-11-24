@@ -12,37 +12,39 @@ class QNetwork(nn.Module):
         super(QNetwork, self).__init__()
 
         self.seed = torch.manual_seed(seed)
-        self.layers = []
-        self.last_out = 4
-        self.setup_model(model)
-        self.conv = nn.Sequential(*self.layers)
-        # self.optimizer = optim.RMSprop(self.conv, lr)
+        layers = self.setup_model(model)
+        self.conv = nn.Sequential(*layers)
+        self.optimizer = optim.RMSprop(self.parameters(), lr=lr)
         print(self.conv)
 
     def setup_model(self, model):
+        layers = []
+        last_out = 4
+
         for layer in model:
             vals = model[layer]
 
             if 'Conv2D' in layer:
-                self.layers.append(nn.Conv2d(
-                    in_channels=self.last_out,
+                layers.append(nn.Conv2d(
+                    in_channels=last_out,
                     out_channels=vals['filters'],
                     kernel_size=vals['kernel_size'],
                     padding=vals['padding'] if "padding" in vals else 0,
                     stride=vals['stride'] if "stride" in vals else 1)
                 )
-                self.layers.append(nn.ReLU())
-                self.last_out = vals['filters']
+                layers.append(nn.ReLU())
+                last_out = vals['filters']
 
             elif 'Flatten' in layer:
-                self.layers.append(nn.Flatten())
+                layers.append(nn.Flatten())
 
             elif 'Dense' in layer:
-                self.layers.append(nn.Linear(in_features=self.last_out, out_features=vals['units']))
-                self.layers.append(nn.ReLU())
-                self.last_out = vals['units']
+                layers.append(nn.Linear(in_features=last_out, out_features=vals['units']))
+                layers.append(nn.ReLU())
+                last_out = vals['units']
+        return layers
 
     def forward(self, x):
         for layer in self.conv:
             x = layer(x)
-        return x
+        return self.conv[-1](x)
