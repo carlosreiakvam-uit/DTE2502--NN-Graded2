@@ -7,6 +7,7 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 from agents.agent import Agent
+import torch.optim as optim
 from agents.agent import mean_huber_loss
 from agents.qnetwork import QNetwork
 
@@ -19,9 +20,8 @@ class DeepQLearningAgent(Agent):
         self._model = None
         self._target_net = None
         self.seed = seed
+        self.lr = 1e-2
         self.reset_models()
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self.qnet = QNetwork(board_size, 10, seed).to(device)
 
     def reset_models(self):
         self._model = self._agent_model()
@@ -60,7 +60,7 @@ class DeepQLearningAgent(Agent):
             m = json.loads(f.read())
         model = m['model']
 
-        return QNetwork(model, self.seed)
+        return QNetwork(model, self.seed, self.lr)
 
         # TODO: Dette burde sikkert også implementeres
         # input_board = Input((self._board_size, self._board_size, self._n_frames,), name='input')
