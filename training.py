@@ -1,14 +1,17 @@
 from tqdm import tqdm
+import torch
 import pandas as pd
 import time
+
+from agents.DeepQLearningAgent import DeepQLearningAgent
 from utils import play_game2
 from game_environment import SnakeNumpy
-import tensorflow as tf
-from agents.DeepQLearningAgent import DeepQLearningAgent
+# from agents.DeepQLearningAgent import DeepQLearningAgent
 from agents.AdvantageActorCriticAgent import AdvantageActorCriticAgent
+from agents.qnetwork import QNetwork
 import json
 
-tf.set_random_seed(42)
+seed = 0
 version = 'v17.1'
 
 # get training configurations
@@ -30,7 +33,9 @@ agent_type = 'DQN'
 
 if agent_type == 'DQN':
     agent = DeepQLearningAgent(board_size=board_size, frames=frames, n_actions=n_actions,
-                               buffer_size=buffer_size, version=version)
+                               buffer_size=buffer_size, version=version, seed=seed)
+    # agent = q_net = QNetwork(board_size, 10, seed).to(device)
+
     epsilon, epsilon_end = 1, 0.01
     reward_type = 'current'
     sample_actions = False
@@ -41,18 +46,18 @@ if agent_type == 'DQN':
         agent.load_model(file_path='models/{:s}'.format(version))
         # agent.set_weights_trainable()
 
-else:
-    # agent type is Advantage Actor Critic Agent
-    agent = AdvantageActorCriticAgent(board_size=board_size, frames=frames, n_actions=n_actions,
-                                      buffer_size=10000, version=version)
-    epsilon, epsilon_end = -1, -1
-    reward_type = 'current'
-    sample_actions = True
-    exploration_threshold = 0.1
-    n_games_training = 32
-    decay = 1
+# else:
+#     # agent type is Advantage Actor Critic Agent
+#     agent = AdvantageActorCriticAgent(board_size=board_size, frames=frames, n_actions=n_actions,
+#                                       buffer_size=10000, version=version)
+#     epsilon, epsilon_end = -1, -1
+#     reward_type = 'current'
+#     sample_actions = True
+#     exploration_threshold = 0.1
+#     n_games_training = 32
+#     decay = 1
 
-# play some games initially to fill the buffer
+    # play some games initially to fill the buffer
 if agent_type == 'DQN':
     # or load from an existing buffer (supervised)
     if supervised:

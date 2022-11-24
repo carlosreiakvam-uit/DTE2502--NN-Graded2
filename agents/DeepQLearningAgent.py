@@ -1,22 +1,31 @@
 import json
 import numpy as np
-from tensorflow.keras.optimizers import RMSprop
-from tensorflow.keras.layers import Input, Conv2D, Flatten, Dense
-from tensorflow.keras import Model
+# from tensorflow.keras.optimizers import RMSprop
+# from tensorflow.keras.layers import Input, Conv2D, Flatten, Dense
+# from tensorflow.keras import Model
+import torch
+import torch.nn.functional as F
+import torch.nn as nn
 from agents.agent import Agent
-from agents.agent import  mean_huber_loss
+from agents.agent import mean_huber_loss
+from agents.qnetwork import QNetwork
 
 
 class DeepQLearningAgent(Agent):
 
     def __init__(self, board_size=10, frames=4, buffer_size=10000, gamma=0.99, n_actions=3, use_target_net=True,
-                 version=''):
+                 version='', seed=0):
         super().__init__(board_size, frames, buffer_size, gamma, n_actions, use_target_net, version)
+        self._model = None
+        self._target_net = None
+        self.seed = seed
         self.reset_models()
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.qnet = QNetwork(board_size, 10, seed).to(device)
 
     def reset_models(self):
         self._model = self._agent_model()
-        if (self._use_target_net):
+        if self._use_target_net:
             self._target_net = self._agent_model()
             self.update_target_net()
 
@@ -49,23 +58,34 @@ class DeepQLearningAgent(Agent):
         # define the input layer, shape is dependent on the board size and frames
         with open('model_config/{:s}.json'.format(self._version), 'r') as f:
             m = json.loads(f.read())
+        model = m['model']
 
-        input_board = Input((self._board_size, self._board_size, self._n_frames,), name='input')
-        x = input_board
-        for layer in m['model']:
-            l = m['model'][layer]
-            if ('Conv2D' in layer):
-                # add convolutional layer
-                x = Conv2D(**l)(x)
-            if ('Flatten' in layer):
-                x = Flatten()(x)
-            if ('Dense' in layer):
-                x = Dense(**l)(x)
-        out = Dense(self._n_actions, activation='linear', name='action_values')(x)
-        model = Model(inputs=input_board, outputs=out)  # Keras model
-        model.compile(optimizer=RMSprop(0.0005), loss=mean_huber_loss)
+        return QNetwork(model, self.seed)
 
-        return model
+        # input_board = Input((self._board_size, self._board_size, self._n_frames,), name='input')
+        # input_tensor = torch.randn(1, 3, 32, 32)
+
+        # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+        # q_net = QNetwork(self._board_size, self._n_frames, self.seed).to(device)
+        # input_board = torch.tensor([self._board_size, self._board_size, self._n_frames])
+        # x = q_net
+
+        #### Skipper denne for nå
+        # for layer in m['model']:
+        #     l = m['model'][layer]
+        #     if 'Conv2D' in layer:
+        #         nn.Conv2d(in_channels=3, out_channels=l['filters'], kernel_size=l['kernel_size'])(x)
+        #     if 'Flatten' in layer:
+        #         torch.flatten(x)
+        # if 'Dense' in layer:
+        #     x = nn.Linear(10, 2) # tatt fra luft
+
+        # out = Dense(self._n_actions, activation='linear', name='action_values')(x)
+        # model = Model(inputs=input_board, outputs=out)  # Keras model
+        # model.compile(optimizer=RMSprop(0.0005), loss=mean_huber_loss)
+        #
+        # return model
 
     def set_weights_trainable(self):
         """Set selected layers to non trainable and compile the model"""
@@ -88,43 +108,43 @@ class DeepQLearningAgent(Agent):
         return model_outputs
 
     def save_model(self, file_path='', iteration=None):
-        if (iteration is not None):
+        if iteration is not None:
             assert isinstance(iteration, int), "iteration should be an integer"
         else:
             iteration = 0
         self._model.save_weights("{}/model_{:04d}.h5".format(file_path, iteration))
-        if (self._use_target_net):
+        if self._use_target_net:
             self._target_net.save_weights("{}/model_{:04d}_target.h5".format(file_path, iteration))
 
     def load_model(self, file_path='', iteration=None):
-        if (iteration is not None):
+        if iteration is not None:
             assert isinstance(iteration, int), "iteration should be an integer"
         else:
             iteration = 0
         self._model.load_weights("{}/model_{:04d}.h5".format(file_path, iteration))
-        if (self._use_target_net):
+        if self._use_target_net:
             self._target_net.load_weights("{}/model_{:04d}_target.h5".format(file_path, iteration))
         # print("Couldn't locate models at {}, check provided path".format(file_path))
 
     def print_models(self):
         print('Training Model')
         print(self._model.summary())
-        if (self._use_target_net):
+        if self._use_target_net:
             print('Target Network')
             print(self._target_net.summary())
 
     def train_agent(self, batch_size=32, num_games=1, reward_clip=False):
         s, a, r, next_s, done, legal_moves = self._buffer.sample(batch_size)
-        if (reward_clip):
+        if reward_clip:
             r = np.sign(r)
         # calculate the discounted reward, and then train accordingly
         current_model = self._target_net if self._use_target_net else self._model
         next_model_outputs = self._get_model_outputs(next_s, current_model)
         # our estimate of expexted future discounted reward
         discounted_reward = r + \
-                            (self._gamma * np.max(np.where(legal_moves == 1, next_model_outputs, -np.inf),
-                                                  axis=1) \
-                             .reshape(-1, 1)) * (1 - done)
+                            (self._gamma * np.max(
+                                np.where(legal_moves == 1, next_model_outputs, -np.inf),
+                                axis=1).reshape(-1, 1)) * (1 - done)
         # create the target variable, only the column with action has different value
         target = self._get_model_outputs(s)
         # we bother only with the difference in reward estimate at the selected action
@@ -135,14 +155,13 @@ class DeepQLearningAgent(Agent):
         return loss
 
     def update_target_net(self):
-        if (self._use_target_net):
+        if self._use_target_net:
             self._target_net.set_weights(self._model.get_weights())
 
     def compare_weights(self):
         for i in range(len(self._model.layers)):
             for j in range(len(self._model.layers[i].weights)):
-                c = (self._model.layers[i].weights[j].numpy() == \
-                     self._target_net.layers[i].weights[j].numpy()).all()
+                c = (self._model.layers[i].weights[j].numpy() == self._target_net.layers[i].weights[j].numpy()).all()
                 print('Layer {:d} Weights {:d} Match : {:d}'.format(i, j, int(c)))
 
     def copy_weights_from_agent(self, agent_for_copy):

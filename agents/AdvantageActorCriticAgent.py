@@ -1,8 +1,8 @@
-import tensorflow as tf
+# import tensorflow as tf
 import numpy as np
-from tensorflow.keras.regularizers import l2
-from tensorflow.keras.layers import Input, Conv2D, Flatten, Dense
-from tensorflow.keras import Model
+# from tensorflow.keras.regularizers import l2
+# from tensorflow.keras.layers import Input, Conv2D, Flatten, Dense
+# from tensorflow.keras import Model
 from agents.PolicyGradientAgent import PolicyGradientAgent
 from agents.agent import mean_huber_loss
 
@@ -59,7 +59,9 @@ class AdvantageActorCriticAgent(PolicyGradientAgent):
 
     def update_target_net(self):
         if (self._use_target_net):
-            self._target_net.set_weights(self._values_model.get_weights())
+            # self._target_net.set_weights(self._values_model.get_weights())
+            # TODO: set weights
+            pass
 
     def train_agent(self, batch_size=32, beta=0.001, normalize_rewards=False,
                     num_games=1, reward_clip=False):
