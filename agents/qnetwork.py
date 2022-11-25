@@ -45,6 +45,7 @@ class QNetwork(nn.Module):
         return layers
 
     def forward(self, x):
+        print(x)
         for layer in self.conv:
             x = layer(x)
         return self.conv[-1](x)
