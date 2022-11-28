@@ -1,8 +1,4 @@
-# import tensorflow as tf
 import numpy as np
-# from tensorflow.keras.regularizers import l2
-# from tensorflow.keras.layers import Input, Conv2D, Flatten, Dense
-# from tensorflow.keras import Model
 from agents.PolicyGradientAgent import PolicyGradientAgent
 from agents.agent import mean_huber_loss
 

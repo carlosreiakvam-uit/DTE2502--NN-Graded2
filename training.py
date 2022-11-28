@@ -4,7 +4,6 @@ import time
 from utils import play_game2
 from game_environment import SnakeNumpy
 import torch
-# import tensorflow as tf
 from agents.DeepQLearningAgent import DeepQLearningAgent
 from agents.AdvantageActorCriticAgent import AdvantageActorCriticAgent
 import json
