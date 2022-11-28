@@ -5,8 +5,8 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 
+import tensorflow as tf
 
-# import tensorflow as tf
 
 class QNetwork(nn.Module):
     """Actor (Policy) Model."""

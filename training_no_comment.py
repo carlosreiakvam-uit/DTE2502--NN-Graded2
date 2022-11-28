@@ -1,17 +1,17 @@
 from tqdm import tqdm
+import torch
 import pandas as pd
 import time
+
+from agents.DeepQLearningAgent import DeepQLearningAgent
 from utils import play_game2
 from game_environment import SnakeNumpy
-import torch
-# import tensorflow as tf
-from agents.DeepQLearningAgent import DeepQLearningAgent
+# from agents.DeepQLearningAgent import DeepQLearningAgent
 from agents.AdvantageActorCriticAgent import AdvantageActorCriticAgent
+from agents.qnetwork import QNetwork
 import json
 
-# tf.set_random_seed(42)
-torch.manual_seed(42)
-
+seed = 0
 version = 'v17.1'
 
 # get training configurations
@@ -33,13 +33,13 @@ agent_type = 'DQN'
 
 if agent_type == 'DQN':
     agent = DeepQLearningAgent(board_size=board_size, frames=frames, n_actions=n_actions,
-                               buffer_size=buffer_size, version=version)
+                               buffer_size=buffer_size, version=version, seed=seed)
     epsilon, epsilon_end = 1, 0.01
     reward_type = 'current'
     sample_actions = False
     n_games_training = 8 * 16
     decay = 0.97
-    if supervised:  # false
+    if supervised:
         epsilon = 0.01
         agent.load_model(file_path='models/{:s}'.format(version))
         # agent.set_weights_trainable()
@@ -55,10 +55,10 @@ if agent_type == 'DQN':
 #     n_games_training = 32
 #     decay = 1
 
-# play some games initially to fill the buffer
+    # play some games initially to fill the buffer
 if agent_type == 'DQN':
     # or load from an existing buffer (supervised)
-    if supervised:  # false
+    if supervised:
         try:
             agent.load_buffer(file_path='models/{:s}'.format(version), iteration=1)
         except FileNotFoundError:
@@ -83,64 +83,35 @@ env2 = SnakeNumpy(board_size=board_size, frames=frames,
                   max_time_limit=max_time_limit, games=games_eval,
                   frame_mode=True, obstacles=obstacles, version=version)
 
-
-
-
-
-
-
-# This is where the magic happens.
-# This is where the other methods of the DeepQLearningAgent has to function as intended.
 # training loop
 model_logs = {'iteration': [], 'reward_mean': [],
               'length_mean': [], 'games': [], 'loss': []}
 for index in tqdm(range(episodes)):
     if agent_type == 'DQN':
         # make small changes to the buffer and slowly train
-
-        # Here we play through the game with the current model
-        # in order to check for the loss (performance) of the model
-        # This should run as intended, no need to make changes here
-        # When inspecting code, remember that env is the gamesetup that is used for playing the game
-        # Env is an instance of SNakeNumpy
         _, _, _ = play_game2(env, agent, n_actions, epsilon=epsilon,
                              n_games=n_games_training, record=True,
                              sample_actions=sample_actions, reward_type=reward_type,
                              frame_mode=True, total_frames=n_games_training,
                              stateful=True)
-
-        # IMPORTANT STEP
-        # First encounter with train_agent
-        # this provides, as indicated, the loss for a given random batch from the current buffer
-        # the current buffer consisting of the results from the previous running of the game
-        # This step also updates the model with new values
         loss = agent.train_agent(batch_size=64,
                                  num_games=n_games_training, reward_clip=True)
 
-
-
-
-
-
-    # else:
-    #     # Advanced Actor Critic Agent
-    #     # play a couple of games and train on all
-    #     _, _, total_games = play_game2(env, agent, n_actions, epsilon=epsilon,
-    #                                    n_games=n_games_training, record=True,
-    #                                    sample_actions=sample_actions, reward_type=reward_type,
-    #                                    frame_mode=True, total_games=n_games_training * 2)
-    #     loss = agent.train_agent(batch_size=agent.get_buffer_size(),
-    #                              num_games=total_games, reward_clip=True)
+    else:
+        # Advanced Actor Critic Agent
+        # play a couple of games and train on all
+        _, _, total_games = play_game2(env, agent, n_actions, epsilon=epsilon,
+                                       n_games=n_games_training, record=True,
+                                       sample_actions=sample_actions, reward_type=reward_type,
+                                       frame_mode=True, total_games=n_games_training * 2)
+        loss = agent.train_agent(batch_size=agent.get_buffer_size(),
+                                 num_games=total_games, reward_clip=True)
 
     # if (agent_type in ['PolicyGradientAgent', 'AdvantageActorCriticAgent']):
     #     # for policy gradient algorithm, we only take current episodes for training
     #     agent.reset_buffer()
 
-
-
     # check performance every once in a while
-    # This actually plays the game in order to check for various data
-    # notice that loss is not calculated here, as it is already calculated above
     if (index + 1) % log_frequency == 0:
         current_rewards, current_lengths, current_games = \
             play_game2(env2, agent, n_actions, n_games=games_eval, epsilon=-1,
