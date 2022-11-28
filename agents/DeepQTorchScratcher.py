@@ -46,28 +46,68 @@ class DeepQTorchScratcher(Agent):
     def getModel(self):
         return self._model
 
-    # Manually implpementing the same model as in the v17.1 setup
+    def _prepare_input(self, board):
+        # reshape board if it its dimension is equal to 3
 
-    def update_target_net(self):
+        if (board.ndim == 3):
+            board = board.reshape((1,) + self._input_shape)
+        board = self._normalize_board(board.copy())  # cast to np.float32, somehow divided by 4
+        return board.copy()  # returns copy of board of same type (np.float32)
+
+    def update_target_net(self):  # true
         # self._target_net.set_weights(self._model.get_weights())
-        self._target_net.load_state_dict(self._model.state_dict())  # simon
+        self._target_net.load_state_dict(
+            self._model.state_dict())  # from simon # sets weights for _target_net from _model
 
     def train_agent(self, batch_size=32, num_games=1, reward_clip=False):
+        # where self.buffer is a ReplayBuffer initialized from Agent
+        # It is sampling batch_size number of examples from the buffer
+
+        # getting batc_size number of: state, action, reward, next_state, done, legal_moves
         s, a, r, next_s, done, legal_moves = self._buffer.sample(batch_size)
-        if reward_clip:
-            r = np.sign(r)
+        if reward_clip:  # true
+            r = np.sign(r)  # returns batch_size numbers of: -1 if r<0, 0 if r== 0 or 1 if r > 0
+            # this is in order to indicate if the reward is negative, positive or passive
+            # essentially it is clipping the reward to discrete values
+
         # calculate the discounted reward, and then train accordingly
+        # Decides wether or not to use target_net as current_model, even though target net is equal to current_model 🤔
         current_model = self._target_net if self._use_target_net else self._model
+
+        # returns 64 x 4 outputs of predicted labels for current model!!!!!
+        # This is a training step!
         next_model_outputs = self._get_model_outputs(next_s, current_model)
+
         # our estimate of expexted future discounted reward
+        # discounted_reward is a 64x4 tensor, a modified reward tensor
+        # gamma is discount, set to 0.99
+        # np.max determines max output of
+        # np.where: numpy.where(condition, [x, y, ]/), where true yield x, otherwise yield y
+        #   In other words if legal_moves == 1: yield next_model_outuout, else yiedl negative infinity
+        # the where part is reshaped to a single column
+        # and finally multiplied with (1-done) which either yields 1 or 0
+        #   meaning if not done, it makes the whole part 0
         discounted_reward = r + (self._gamma * np.max(
             np.where(legal_moves == 1, next_model_outputs, -np.inf),
             axis=1).reshape(-1, 1)) * (1 - done)
-        # create the target variable, only the column with action has different value
+
+        # create the target variable, only the column with action has different value <- original comment
+        # This is another go at get_model_outout, only this time, only state is input
+        # state is 64x10x10x2, aka 64 examples of a game
         target = self._get_model_outputs(s)
+
         # we bother only with the difference in reward estimate at the selected action
+        # a is a 64x4 tensor
+        # target is the model outputs, or labels if you will
+        # discounted reward is what it sounds like
         target = (1 - a) * target + a * discounted_reward
+
+        # EXTREMELY IMPORTANT STEP HERE
         # fit
+        # train_on_batch() is a tensorflow method (not to be mistaken for predict_on_batch)
+        # states are normalized and used as input X <---!!!
+        # target is used for labels y <--- !!!
+        # the training provides, as indicated, the loss which we intend to minimize
         loss = self._model.train_on_batch(self._normalize_board(s), target)
         # loss = round(loss, 5)
         return loss

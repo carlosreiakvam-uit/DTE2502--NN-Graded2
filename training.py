@@ -4,8 +4,8 @@ import time
 from utils import play_game2
 from game_environment import SnakeNumpy
 import torch
-from agents.DeepQLearningAgent import DeepQLearningAgent
-from agents.AdvantageActorCriticAgent import AdvantageActorCriticAgent
+from agents.DeepQTorchScratcher import DeepQTorchScratcher
+# from agents.AdvantageActorCriticAgent import AdvantageActorCriticAgent
 import json
 
 # tf.set_random_seed(42)
@@ -31,48 +31,28 @@ games_eval = 8
 agent_type = 'DQN'
 
 if agent_type == 'DQN':
-    agent = DeepQLearningAgent(board_size=board_size, frames=frames, n_actions=n_actions,
-                               buffer_size=buffer_size, version=version)
+    agent = DeepQTorchScratcher(board_size=board_size, frames=frames, n_actions=n_actions,
+                                buffer_size=buffer_size, version=version)
     epsilon, epsilon_end = 1, 0.01
     reward_type = 'current'
     sample_actions = False
     n_games_training = 8 * 16
     decay = 0.97
-    if supervised:  # false
-        epsilon = 0.01
-        agent.load_model(file_path='models/{:s}'.format(version))
-        # agent.set_weights_trainable()
 
-# else:
-#     # agent type is Advantage Actor Critic Agent
-#     agent = AdvantageActorCriticAgent(board_size=board_size, frames=frames, n_actions=n_actions,
-#                                       buffer_size=10000, version=version)
-#     epsilon, epsilon_end = -1, -1
-#     reward_type = 'current'
-#     sample_actions = True
-#     exploration_threshold = 0.1
-#     n_games_training = 32
-#     decay = 1
+# TODO else statement for actor critic here
 
 # play some games initially to fill the buffer
 if agent_type == 'DQN':
-    # or load from an existing buffer (supervised)
-    if supervised:  # false
-        try:
-            agent.load_buffer(file_path='models/{:s}'.format(version), iteration=1)
-        except FileNotFoundError:
-            pass
-    else:
-        # setup the environment
-        games = 512
-        env = SnakeNumpy(board_size=board_size, frames=frames,
-                         max_time_limit=max_time_limit, games=games,
-                         frame_mode=True, obstacles=obstacles, version=version)
-        ct = time.time()
-        _ = play_game2(env, agent, n_actions, n_games=games, record=True,
-                       epsilon=epsilon, verbose=True, reset_seed=False,
-                       frame_mode=True, total_frames=games * 64)
-        print('Playing {:d} frames took {:.2f}s'.format(games * 64, time.time() - ct))
+    # setup the environment
+    games = 512
+    env = SnakeNumpy(board_size=board_size, frames=frames,
+                     max_time_limit=max_time_limit, games=games,
+                     frame_mode=True, obstacles=obstacles, version=version)
+    ct = time.time()
+    _ = play_game2(env, agent, n_actions, n_games=games, record=True,
+                   epsilon=epsilon, verbose=True, reset_seed=False,
+                   frame_mode=True, total_frames=games * 64)
+    print('Playing {:d} frames took {:.2f}s'.format(games * 64, time.time() - ct))
 
 # Setup new environments
 env = SnakeNumpy(board_size=board_size, frames=frames,
@@ -81,12 +61,6 @@ env = SnakeNumpy(board_size=board_size, frames=frames,
 env2 = SnakeNumpy(board_size=board_size, frames=frames,
                   max_time_limit=max_time_limit, games=games_eval,
                   frame_mode=True, obstacles=obstacles, version=version)
-
-
-
-
-
-
 
 # This is where the magic happens.
 # This is where the other methods of the DeepQLearningAgent has to function as intended.
@@ -116,11 +90,6 @@ for index in tqdm(range(episodes)):
         loss = agent.train_agent(batch_size=64,
                                  num_games=n_games_training, reward_clip=True)
 
-
-
-
-
-
     # else:
     #     # Advanced Actor Critic Agent
     #     # play a couple of games and train on all
@@ -134,8 +103,6 @@ for index in tqdm(range(episodes)):
     # if (agent_type in ['PolicyGradientAgent', 'AdvantageActorCriticAgent']):
     #     # for policy gradient algorithm, we only take current episodes for training
     #     agent.reset_buffer()
-
-
 
     # check performance every once in a while
     # This actually plays the game in order to check for various data
