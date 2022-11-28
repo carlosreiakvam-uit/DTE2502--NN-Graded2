@@ -46,14 +46,6 @@ class DeepQTorchScratcher(Agent):
     def getModel(self):
         return self._model
 
-    def _prepare_input(self, board):
-        # reshape board if it its dimension is equal to 3
-
-        if (board.ndim == 3):
-            board = board.reshape((1,) + self._input_shape)
-        board = self._normalize_board(board.copy())  # cast to np.float32, somehow divided by 4
-        return board.copy()  # returns copy of board of same type (np.float32)
-
     def update_target_net(self):  # true
         # self._target_net.set_weights(self._model.get_weights())
         self._target_net.load_state_dict(
@@ -72,11 +64,11 @@ class DeepQTorchScratcher(Agent):
 
         # calculate the discounted reward, and then train accordingly
         # Decides wether or not to use target_net as current_model, even though target net is equal to current_model 🤔
-        current_model = self._target_net if self._use_target_net else self._model
+        current_model = self._target_net if self._use_target_net else self._model  # goes through
 
         # returns 64 x 4 outputs of predicted labels for current model!!!!!
         # This is a training step!
-        next_model_outputs = self._get_model_outputs(next_s, current_model)
+        next_model_outputs = self._get_model_outputs(next_s, current_model) # next_s er board inne i get_model_outputs!!
 
         # our estimate of expexted future discounted reward
         # discounted_reward is a 64x4 tensor, a modified reward tensor
@@ -87,8 +79,9 @@ class DeepQTorchScratcher(Agent):
         # the where part is reshaped to a single column
         # and finally multiplied with (1-done) which either yields 1 or 0
         #   meaning if not done, it makes the whole part 0
+        tensor_copy = next_model_outputs
         discounted_reward = r + (self._gamma * np.max(
-            np.where(legal_moves == 1, next_model_outputs, -np.inf),
+            np.where(legal_moves == 1, torch.detach(tensor_copy), -np.inf),
             axis=1).reshape(-1, 1)) * (1 - done)
 
         # create the target variable, only the column with action has different value <- original comment
@@ -114,18 +107,19 @@ class DeepQTorchScratcher(Agent):
 
     def _get_model_outputs(self, board, model=None):
         # to correct dimensions and normalize
-        board = self._prepare_input(board)
+        board = self._prepare_input(board)  # needs to return a tensor
         # the default model to use
-        if model is None:
+        if model is None:  # false
             model = self._model
-        model_outputs = model.predict_on_batch(board)
+        # model_outputs = model.predict_on_batch(board) # tf
+        model_outputs = model(board)
         return model_outputs
 
     def _prepare_input(self, board):
-        if (board.ndim == 3):
-            board = board.reshape((1,) + self._input_shape)
-        board = self._normalize_board(board.copy())
-        return board.copy()
+        board = board.copy().astype(np.float32) / 4.0
+        board = torch.from_numpy(board)
+        board = torch.reshape(board,(64,2,10,10))
+        return board
 
     def _normalize_board(self, board):
         return board.astype(np.float32) / 4.0
