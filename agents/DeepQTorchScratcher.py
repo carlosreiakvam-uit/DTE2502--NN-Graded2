@@ -117,7 +117,7 @@ class DeepQTorchScratcher(Agent):
         return loss
 
     def train_model(self, board, labels, model):
-        self.optimizer = optim.Adam(model.parameters(), lr=0.01)
+        self.optimizer = optim.Adam(model.parameters(), lr=0.001)
         labels = torch.from_numpy(labels)  # is 64, should be 32
         labels = labels.type(torch.float32)
         board = torch.from_numpy(board)

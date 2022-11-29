@@ -1,6 +1,7 @@
 from tqdm import tqdm
 import pandas as pd
 import time
+import math
 from utils import play_game2
 from game_environment import SnakeNumpy
 import torch
