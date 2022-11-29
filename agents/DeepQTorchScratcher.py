@@ -12,17 +12,19 @@ class Network(nn.Module):
 
     def __init__(self, seed):
         super(Network, self).__init__()
-        self.seed = seed
-        self.conv1 = nn.Conv2d(in_channels=2, out_channels=16, kernel_size=3, padding='same')
-        self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3)
-        self.conv3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=5)
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-        self.flatten = nn.Flatten()
-        self.fc1 = nn.Linear(64 * 4 * 4, 64)
-        self.out = nn.Linear(64, 4)
+        self.seed = seed
+        self.conv1 = nn.Conv2d(in_channels=2, out_channels=16, kernel_size=3, padding='same').to(self.device)
+        self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3).to(self.device)
+        self.conv3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=5).to(self.device)
+
+        self.flatten = nn.Flatten().to(self.device)
+        self.fc1 = nn.Linear(64 * 4 * 4, 64).to(self.device)
+        self.out = nn.Linear(64, 4).to(self.device)
 
     def forward(self, t):
-        t = torch.tensor(t)
+        t = torch.Tensor(t).to(self.device)
         t = torch.stack([t[batch_idx].T for batch_idx in range(t.shape[0])])  # stokke om shape and retain values
         t = self.conv1(t)
         t = F.relu(t)
@@ -41,8 +43,10 @@ class Network(nn.Module):
 class DeepQTorchScratcher(Agent):
     def __init__(self, board_size, frames, buffer_size, n_actions, version, use_target_net=True, gamma=0.99):
         super().__init__(board_size, frames, buffer_size, gamma, n_actions, use_target_net, version)
-        self._model = Network(seed=0)
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self._model = Network(seed=0).to(self.device)
         self._target_net = self._model
+        self._target_net.to(self.device)
         self.update_target_net()
 
     def getModel(self):
@@ -83,7 +87,7 @@ class DeepQTorchScratcher(Agent):
         # the where part is reshaped to a single column
         # and finally multiplied with (1-done) which either yields 1 or 0
         #   meaning if not done, it makes the whole part 0
-        tensor_copy = next_model_outputs.clone().detach().numpy()
+        tensor_copy = next_model_outputs.cpu().clone().detach().numpy()
         # tensor_copy = tensor_copy.detach().numpy()
         discounted_reward = r + (self._gamma * np.max(
             np.where(legal_moves == 1, tensor_copy, -np.inf),
@@ -98,7 +102,7 @@ class DeepQTorchScratcher(Agent):
         # a is a 64x4 tensor
         # target is the model outputs, or labels if you will
         # discounted reward is what it sounds like
-        target = target.detach().numpy()
+        target = target.cpu().detach().numpy()
         target = target.astype(np.float32)
         target = (1 - a) * target + a * discounted_reward
 
@@ -117,16 +121,15 @@ class DeepQTorchScratcher(Agent):
         return loss
 
     def train_model(self, board, labels, model):
-        self.optimizer = optim.Adam(model.parameters(), lr=0.001)
+        self.optimizer = optim.RMSprop(model.parameters(), lr=0.0005)
         labels = torch.from_numpy(labels)  # is 64, should be 32
-        labels = labels.type(torch.float32)
-        board = torch.from_numpy(board)
-        preds = self._model(board)
-        loss = torch.sqrt(F.mse_loss(preds, labels))  # RMSE
+        labels = labels.type(torch.float32).to(self.device)
+        board = torch.from_numpy(board).to(self.device)
+        preds = self._model(board).to(self.device)
+        # loss = torch.sqrt(F.mse_loss(preds, labels))  # RMSE
+        loss = nn.functional.huber_loss(preds, labels, reduction='mean')
         self.optimizer.zero_grad()
-        a = model.conv1.weight.grad
         loss.backward()
-        a = model.conv1.weight.grad
         self.optimizer.step()
         return loss.item()
 
@@ -135,7 +138,7 @@ class DeepQTorchScratcher(Agent):
         board = self._prepare_input(board)  # needs to return a tensor? does it?
         # the default model to use
         if model is None:  # false
-            model = self._model
+            model = self._model.to(self.device)
         # model_outputs = model.predict_on_batch(board) # tf
         model_outputs = model(board)
         return model_outputs
@@ -170,5 +173,5 @@ class DeepQTorchScratcher(Agent):
     def move(self, board, legal_moves, value=None):
         # use the agent model to make the predictions
         model_outputs = self._get_model_outputs(board, self._model)
-        model_outputs = model_outputs.detach().numpy()
+        model_outputs = model_outputs.cpu().detach().numpy()
         return np.argmax(np.where(legal_moves == 1, model_outputs, -np.inf), axis=1)  # argmax
