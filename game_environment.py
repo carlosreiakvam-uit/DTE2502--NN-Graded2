@@ -775,7 +775,7 @@ class SnakeNumpy:
         # time limit to contain length of game, -1 means run till end
         self._max_time_limit = max_time_limit
         # queue for board
-        self._board = deque(maxlen=self._n_frames)
+        self._board = deque(maxlen=self._n_frames) # size is 2
         # define the convolutions for movement operations (total 4 actions)
         self._action_conv = np.zeros((3, 3, self._n_actions), dtype=np.uint8)
         self._action_conv[1, 0, 0] = 1

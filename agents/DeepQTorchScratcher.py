@@ -175,3 +175,15 @@ class DeepQTorchScratcher(Agent):
         model_outputs = self._get_model_outputs(board, self._model)
         model_outputs = model_outputs.cpu().detach().numpy()
         return np.argmax(np.where(legal_moves == 1, model_outputs, -np.inf), axis=1)  # argmax
+
+    def load_model(self, file_path='', iteration=None):
+        if iteration is not None:
+            assert isinstance(iteration, int), "iteration should be an integer"
+        else:
+            iteration = 0
+        # self._model.load("{}/model_{:04d}.h5".format(file_path, iteration))
+        torch.load("{}/model_{:04d}.h5".format(file_path, iteration))
+        if self._use_target_net:
+            torch.load("{}/model_{:04d}_target.h5".format(file_path, iteration))
+            # self._target_net.load("{}/model_{:04d}_target.h5".format(file_path, iteration))
+        # print("Couldn't locate models at {}, check provided path".format(file_path))

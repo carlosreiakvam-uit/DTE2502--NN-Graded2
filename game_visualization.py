@@ -1,7 +1,7 @@
 # script to visualize how agent plays a game
 # useful to study different iterations
 
-from agents.agent import DeepQLearningAgent
+from agents.DeepQTorchScratcher import DeepQTorchScratcher
 from game_environment import Snake
 from utils import visualize_game
 import json
@@ -19,6 +19,7 @@ with open('model_config/{:s}.json'.format(version), 'r') as f:
     n_actions = m['n_actions']
     obstacles = bool(m['obstacles'])
 
+#
 iteration_list = [163500]
 max_time_limit = 398
 
@@ -30,7 +31,7 @@ n_actions = env.get_num_actions()
 
 # setup the agent
 # K.clear_session()
-agent = DeepQLearningAgent(board_size=board_size, frames=frames,
+agent = DeepQTorchScratcher(board_size=board_size, frames=frames,
                            n_actions=n_actions, buffer_size=10, version=version)
 # agent = PolicyGradientAgent(board_size=board_size, frames=frames, n_actions=n_actions, buffer_size=10)
 # agent = AdvantageActorCriticAgent(board_size=board_size, frames=frames, n_actions=n_actions, buffer_size=10)

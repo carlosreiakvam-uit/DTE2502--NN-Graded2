@@ -25,7 +25,7 @@ with open('model_config/{:s}.json'.format(version), 'r') as f:
     obstacles = bool(m['obstacles'])
     buffer_size = m['buffer_size']
 
-episodes = 2 * (10 ** 5)
+episodes = 2 * (10 ** 4)
 log_frequency = 500
 games_eval = 8
 
