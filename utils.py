@@ -98,7 +98,7 @@ def play_game2(env, agent, n_actions, n_games=100, epsilon=0.01, record=True,
     lengths = 0  # to keep track of total length across all games
     if (reset_seed):
         np.random.seed(42)
-    s = env.reset(stateful)
+    s = env.reset(stateful) # ndarray
     # this done is just for first run of the while loop
     done = np.zeros((1,), dtype=np.uint8)
     # the following is useful for discounted rewards as not known in advance
@@ -135,7 +135,8 @@ def play_game2(env, agent, n_actions, n_games=100, epsilon=0.01, record=True,
                 action[action == 4] = 3
             else:
                 # get action with best q value
-                action = agent.move(s, legal_moves, env.get_values()) #TODO DET ER HER
+                # agent is
+                action = agent.move(s, legal_moves, env.get_values()) # TODO DET ER FORTSATT HER
         # take 1 step in env across all games 
         next_s, reward, done, info, next_legal_moves = env.step(action)
 

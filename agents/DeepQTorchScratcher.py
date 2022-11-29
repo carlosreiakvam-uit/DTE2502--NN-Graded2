@@ -23,7 +23,7 @@ class Network(nn.Module):
 
     def forward(self, t):
         t = torch.tensor(t)
-        t = torch.stack([t[batch_idx].T for batch_idx in range(t.shape[0])])  # stack and retain shape
+        t = torch.stack([t[batch_idx].T for batch_idx in range(t.shape[0])])  # stokke om shape and retain values
         t = self.conv1(t)
         t = F.relu(t)
         t = self.conv2(t)
@@ -160,11 +160,15 @@ class DeepQTorchScratcher(Agent):
             assert isinstance(iteration, int), "iteration should be an integer"
         else:
             iteration = 0
-        self._model.save_weights("{}/model_{:04d}.h5".format(file_path, iteration))
+        # self._model.save_weights("{}/model_{:04d}.h5".format(file_path, iteration))
+        # self._model.save()
+        torch.save(self._model, f="{}/model_{:04d}_target.h5".format(file_path, iteration))
         if self._use_target_net:
-            self._target_net.save_weights("{}/model_{:04d}_target.h5".format(file_path, iteration))
+            torch.save(self._target_net, f="{}/model_{:04d}_target.h5".format(file_path, iteration))
+            # self._target_net.save_weights("{}/model_{:04d}_target.h5".format(file_path, iteration))
 
     def move(self, board, legal_moves, value=None):
         # use the agent model to make the predictions
         model_outputs = self._get_model_outputs(board, self._model)
-        return np.argmax(np.where(legal_moves == 1, model_outputs, -np.inf), axis=1)
+        model_outputs = model_outputs.detach().numpy()
+        return np.argmax(np.where(legal_moves == 1, model_outputs, -np.inf), axis=1)  # argmax
