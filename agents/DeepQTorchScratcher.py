@@ -110,7 +110,7 @@ class DeepQTorchScratcher(Agent):
         # the training provides, as indicated, the loss which we intend to minimize
         # loss = self._model.train_on_batch(self._normalize_board(s), target) # tf
         s = self._prepare_input(s)
-        s = s.detach().numpy()
+        # s = s.detach().numpy()
         # s = nn.functional.normalize(s)
         loss = self.train_model(s, target, current_model)
         # loss = round(loss, 5)
