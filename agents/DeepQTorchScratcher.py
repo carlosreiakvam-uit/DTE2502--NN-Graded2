@@ -2,8 +2,8 @@ import torch
 from agents.agent import Agent
 from replay_buffer import ReplayBuffer, ReplayBufferNumpy
 import numpy as np
-import pickle
 import torch
+import torch.optim as optim
 import torch.nn.functional as F
 import torch.nn as nn
 
@@ -22,6 +22,8 @@ class Network(nn.Module):
         self.out = nn.Linear(64, 4)
 
     def forward(self, t):
+        t = torch.tensor(t)
+        t = torch.stack([t[batch_idx].T for batch_idx in range(t.shape[0])])  # stack and retain shape
         t = self.conv1(t)
         t = F.relu(t)
         t = self.conv2(t)
@@ -68,7 +70,9 @@ class DeepQTorchScratcher(Agent):
 
         # returns 64 x 4 outputs of predicted labels for current model!!!!!
         # This is a training step!
-        next_model_outputs = self._get_model_outputs(next_s, current_model) # next_s er board inne i get_model_outputs!!
+        # reshapes the output
+        next_model_outputs = self._get_model_outputs(next_s,
+                                                     current_model)  # next_s er board inne i get_model_outputs!!
 
         # our estimate of expexted future discounted reward
         # discounted_reward is a 64x4 tensor, a modified reward tensor
@@ -79,9 +83,10 @@ class DeepQTorchScratcher(Agent):
         # the where part is reshaped to a single column
         # and finally multiplied with (1-done) which either yields 1 or 0
         #   meaning if not done, it makes the whole part 0
-        tensor_copy = next_model_outputs
+        tensor_copy = next_model_outputs.clone().detach().numpy()
+        # tensor_copy = tensor_copy.detach().numpy()
         discounted_reward = r + (self._gamma * np.max(
-            np.where(legal_moves == 1, torch.detach(tensor_copy), -np.inf),
+            np.where(legal_moves == 1, tensor_copy, -np.inf),
             axis=1).reshape(-1, 1)) * (1 - done)
 
         # create the target variable, only the column with action has different value <- original comment
@@ -93,6 +98,8 @@ class DeepQTorchScratcher(Agent):
         # a is a 64x4 tensor
         # target is the model outputs, or labels if you will
         # discounted reward is what it sounds like
+        target = target.detach().numpy()
+        target = target.astype(np.float32)
         target = (1 - a) * target + a * discounted_reward
 
         # EXTREMELY IMPORTANT STEP HERE
@@ -101,13 +108,31 @@ class DeepQTorchScratcher(Agent):
         # states are normalized and used as input X <---!!!
         # target is used for labels y <--- !!!
         # the training provides, as indicated, the loss which we intend to minimize
-        loss = self._model.train_on_batch(self._normalize_board(s), target)
+        # loss = self._model.train_on_batch(self._normalize_board(s), target) # tf
+        s = self._prepare_input(s)
+        s = s.detach().numpy()
+        # s = nn.functional.normalize(s)
+        loss = self.train_model(s, target, current_model)
         # loss = round(loss, 5)
         return loss
 
+    def train_model(self, board, labels, model):
+        self.optimizer = optim.Adam(model.parameters(), lr=0.01)
+        labels = torch.from_numpy(labels)  # is 64, should be 32
+        labels = labels.type(torch.float32)
+        board = torch.from_numpy(board)
+        preds = self._model(board)
+        loss = torch.sqrt(F.mse_loss(preds, labels))  # RMSE
+        self.optimizer.zero_grad()
+        a = model.conv1.weight.grad
+        loss.backward()
+        a = model.conv1.weight.grad
+        self.optimizer.step()
+        return loss.item()
+
     def _get_model_outputs(self, board, model=None):
         # to correct dimensions and normalize
-        board = self._prepare_input(board)  # needs to return a tensor
+        board = self._prepare_input(board)  # needs to return a tensor? does it?
         # the default model to use
         if model is None:  # false
             model = self._model
@@ -116,13 +141,19 @@ class DeepQTorchScratcher(Agent):
         return model_outputs
 
     def _prepare_input(self, board):
-        board = board.copy().astype(np.float32) / 4.0
-        board = torch.from_numpy(board)
-        board = torch.reshape(board,(64,2,10,10))
+        board = board.astype(np.float32) / 4  # normalization
+
+        # board = torch.from_numpy(board)
+        # board = nn.functional.normalize(board)
+        # board = torch.reshape(board, (64, 2, 10, 10)) # do not use, does not move data in shape
+        # board = torch.stack([board[batch_idx].T for batch_idx in range(board.shape[0])]) # stack and retain shape
+        # board = board.permute(*torch.arange(-board.ndim 1, -1, -1)) # recommended py docu but gives wrong shape
         return board
 
-    def _normalize_board(self, board):
-        return board.astype(np.float32) / 4.0
+    # def _normalize_board(self, board):
+    # original is to return copy of numpy board cast to type np.float32 divided by 4 (probably because of 4 actions)
+    # return board.astype(np.float32) / 4.0
+    # return
 
     def save_model(self, file_path='', iteration=None):
         if iteration is not None:
