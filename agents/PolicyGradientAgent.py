@@ -1,7 +1,7 @@
-from agents.DeepQLearningAgent import DeepQLearningAgent
+from agents.DeepQTorchScratcher import DeepQTorchScratcher
 
 
-class PolicyGradientAgent(DeepQLearningAgent):
+class PolicyGradientAgent(DeepQTorchScratcher):
 
     def __init__(self, board_size=10, frames=4, buffer_size=10000, gamma=0.99, n_actions=3, use_target_net=False,
                  version=''):
