@@ -1,5 +1,5 @@
 from agents.agent import Agent
-from agents.simon_model import DeepQLearningNet as Network
+# from agents.simon_model import DeepQLearningNet as Network
 import numpy as np
 import torch
 import torch.optim as optim
@@ -7,33 +7,32 @@ import torch.nn.functional as F
 import torch.nn as nn
 
 
-# class Network(nn.Module):
-#
-#     def __init__(self):
-#         super(Network, self).__init__()
-#         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-#         self.conv1 = nn.Conv2d(in_channels=2, out_channels=16, kernel_size=3, padding='same').to(self.device)
-#         self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3).to(self.device)
-#         self.conv3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=5).to(self.device)
-#
-#         self.flatten = nn.Flatten().to(self.device)
-#         self.fc1 = nn.Linear(64 * 4 * 4, 64).to(self.device)
-#         self.out = nn.Linear(64, 4).to(self.device)
-#
-#     def forward(self, t):
-#         t = torch.Tensor(t).to(self.device)
-#         t = self.conv1(t)
-#         t = F.relu(t)
-#         t = self.conv2(t)
-#         t = F.relu(t)
-#         t = self.conv3(t)
-#         t = F.relu(t)
-#         t = self.flatten(t)
-#         t = self.fc1(t)
-#         t = F.relu(t)
-#         t = self.out(t)
-#         # t = F.softmax(t, dim=-1)
-#         return t
+class Network(nn.Module):
+
+    def __init__(self):
+        super(Network, self).__init__()
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.conv1 = nn.Conv2d(in_channels=2, out_channels=16, kernel_size=3, padding='same').to(self.device)
+        self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3).to(self.device)
+        self.conv3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=5).to(self.device)
+
+        self.flatten = nn.Flatten().to(self.device)
+        self.fc1 = nn.Linear(64 * 4 * 4, 64).to(self.device)
+        self.out = nn.Linear(64, 4).to(self.device)
+
+    def forward(self, t):
+        t = self.conv1(t)
+        t = F.relu(t)
+        t = self.conv2(t)
+        t = F.relu(t)
+        t = self.conv3(t)
+        t = F.relu(t)
+        t = self.flatten(t)
+        t = self.fc1(t)
+        t = F.relu(t)
+        t = self.out(t)
+        # t = F.softmax(t, dim=-1)
+        return t
 
 
 class DeepQTorchScratcher(Agent):
@@ -51,11 +50,6 @@ class DeepQTorchScratcher(Agent):
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.reset_models()
-        # self._model = Network().to(self.device)
-        # self._target_net = self._model
-        # self._target_net.to(self.device)
-        # self.update_target_net()
-        # self._input_shape = (self._board_size, self._board_size, self._n_frames)
 
     def reset_models(self):
         self._model = self._agent_model()
@@ -64,9 +58,10 @@ class DeepQTorchScratcher(Agent):
             self.update_target_net()
 
     def _agent_model(self):
-        self.model = Network(version=self.version, frames=self._n_frames, n_actions=self.n_actions,
-                             board_size=self.board_size, buffer_size=self.buffer_size,
-                             gamma=self.gamma, use_target_net=self.use_target_net)
+        # self.model = Network(version=self.version, frames=self._n_frames, n_actions=self.n_actions,
+        #                      board_size=self.board_size, buffer_size=self.buffer_size,
+        #                      gamma=self.gamma, use_target_net=self.use_target_net)
+        self.model = Network()
 
         return self.model.to(self.device)
 
@@ -105,7 +100,9 @@ class DeepQTorchScratcher(Agent):
         return loss
 
     def train_model(self, board, target, model):
-        optimizer = model.optimizer
+        # optimizer = model.optimizer
+        optimizer = optim.RMSprop(model.parameters(), lr=0.0005)
+
         model.train()
 
         labels = target.type(torch.float32).to(self.device)
