@@ -26,10 +26,10 @@ class Network(nn.Module):
     def forward(self, t):
         a = type(t)
         if 'numpy' in str(type(t)):
-            t = np.transpose(t, (0, 3, 1, 2)) # alternative to stack reshape
+            t = np.transpose(t, (0, 3, 1, 2))  # alternative to stack reshape
         else:
             t = t.cpu().detach().numpy()
-            t = np.transpose(t, (0, 3, 1, 2)) # alternative to stack reshape
+            t = np.transpose(t, (0, 3, 1, 2))  # alternative to stack reshape
         t = torch.Tensor(t).to(self.device)
         # t = torch.stack([t[batch_idx].T for batch_idx in range(t.shape[0])])  # stokke om shape and retain values
         t = self.conv1(t)
@@ -101,7 +101,6 @@ class DeepQTorchScratcher(Agent):
 
         discounted_reward = torch.from_numpy(discounted_reward).to(self.device)
 
-
         # create the target variable, only the column with action has different value <- original comment
         # This is another go at get_model_outout, only this time, only state is input
         # state is 64x10x10x2, aka 64 examples of a game
@@ -126,14 +125,14 @@ class DeepQTorchScratcher(Agent):
         # loss = self._model.train_on_batch(self._normalize_board(s), target) # tf
         # s = s.detach().numpy()
         # s = nn.functional.normalize(s)
-        s = self._normalize(s)
 
         loss = self.train_model(self._normalize(s), target, self._model)  # var current_model sist
         # loss = round(loss, 5)
         return loss
 
     def train_model(self, states, targets, model):
-        self.optimizer = optim.RMSprop(model.parameters(), lr=0.0005, eps=1e-7)
+        self.optimizer = optim.RMSprop(model.parameters(), lr=0.0005)
+        model.train()
         # targets = torch.from_numpy(targets)  # is 64, should be 32
         targets = targets.type(torch.float32).to(self.device)
         states = torch.from_numpy(states).to(self.device)
@@ -174,21 +173,22 @@ class DeepQTorchScratcher(Agent):
     # original is to return copy of numpy board cast to type np.float32 divided by 4 (probably because of 4 actions)
     # return board.astype(np.float32) / 4.0
     # return
+    def move(self, board, legal_moves, value=None):
+        # use the agent model to make the predictions
+        model_outputs = self._get_model_outputs(board, self._model)
+        model_outputs = model_outputs.cpu().detach().numpy()
+        return np.argmax(np.where(legal_moves == 1, model_outputs, -np.inf), axis=1)  # argmax
 
     def save_model(self, file_path='', iteration=None):
         if iteration is not None:
             assert isinstance(iteration, int), "iteration should be an integer"
         else:
             iteration = 0
-        torch.save(self._model, f="{}/model_{:04d}.h5".format(file_path, iteration))
+        torch.save(self._model.state_dict(), "{}/model_{:04d}.h5".format(file_path, iteration))
+        # torch.save(self._model, f="{}/model_{:04d}.h5".format(file_path, iteration))
         if self._use_target_net:
-            torch.save(self._target_net, f="{}/model_{:04d}_target.h5".format(file_path, iteration))
-
-    def move(self, board, legal_moves, value=None):
-        # use the agent model to make the predictions
-        model_outputs = self._get_model_outputs(board, self._model)
-        model_outputs = model_outputs.cpu().detach().numpy()
-        return np.argmax(np.where(legal_moves == 1, model_outputs, -np.inf), axis=1)  # argmax
+            # torch.save(self._target_net, f="{}/model_{:04d}_target.h5".format(file_path, iteration))
+            torch.save(self._target_net.state_dict(), "{}/model_{:04d}_target.h5".format(file_path, iteration))
 
     def load_model(self, file_path='', iteration=None):
         if iteration is not None:
@@ -196,8 +196,12 @@ class DeepQTorchScratcher(Agent):
         else:
             iteration = 0
         # self._model.load("{}/model_{:04d}.h5".format(file_path, iteration))
-        torch.load("{}/model_{:04d}.h5".format(file_path, iteration))
+        # torch.load("{}/model_{:04d}.h5".format(file_path, iteration))
+        self._model.load_state_dict((torch.load("{}/model_{:04d}.h5".format(file_path, iteration))))
+
         if self._use_target_net:
-            torch.load("{}/model_{:04d}_target.h5".format(file_path, iteration))
+            # torch.load("{}/model_{:04d}_target.h5".format(file_path, iteration))
             # self._target_net.load("{}/model_{:04d}_target.h5".format(file_path, iteration))
+            self._target_net.load_state_dict(torch.load("{}/model_{:04d}_target.h5".format(file_path, iteration)))
+
         # print("Couldn't locate models at {}, check provided path".format(file_path))
