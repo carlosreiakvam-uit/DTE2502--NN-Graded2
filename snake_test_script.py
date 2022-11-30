@@ -1,5 +1,5 @@
 # from game_environment_parallel import Snake
-from agents.agent import DeepQLearningAgent
+from agents.Agent import DeepQLearningAgent
 
 from game_environment import Snake
 import numpy as np

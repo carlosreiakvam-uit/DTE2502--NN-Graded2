@@ -1,30 +1,40 @@
 import numpy as np
 from agents.PolicyGradientAgent import PolicyGradientAgent
-from agents.agent import Agent
+from agents.DeepQAgent import DeepQAgent
+from agents.models.AACM import AACM
+import torch
 
 
-class AdvantageActorCriticAgent(PolicyGradientAgent):
+class AdvantageActorCriticAgent(DeepQAgent):
     def __init__(self, board_size=10, frames=4, buffer_size=10000, gamma=0.99, n_actions=3, use_target_net=True,
                  version=''):
         super().__init__(board_size, frames, buffer_size, gamma, n_actions, use_target_net, version)
-        # self._optimizer = tf.keras.optimizers.RMSprop(5e-4)
 
     def reset_models(self):
-        self._model, self._full_model, self._values_model = self._agent_model()
+        self._model = AACM(model_type='model_logits')
+        self._full_model = AACM(model_type='model_full')
+        self._values_model = AACM(model_type='model_values')
+
         if self._use_target_net:
             _, _, self._target_net = self._agent_model()
             self.update_target_net()
+
+    def _agent_model(self):
+        model_logits = AACM(model_type='model_logits')
+        model_full = AACM(model_type='model_full')
+        model_values = AACM(model_type='model_values')
+        return model_logits, model_full, model_values
 
     def save_model(self, file_path='', iteration=None):
         if iteration is not None:
             assert isinstance(iteration, int), "iteration should be an integer"
         else:
             iteration = 0
-        self._model.save_weights("{}/model_{:04d}.h5".format(file_path, iteration))
-        self._full_model.save_weights("{}/model_{:04d}_full.h5".format(file_path, iteration))
+        torch.save(self._model.state_dict(), "{}/model_{:04d}.h5".format(file_path, iteration))
+        torch.save(self._full_model.state_dict(), "{}/model_{:04d}_full.h5".format(file_path, iteration))
         if self._use_target_net:
-            self._values_model.save_weights("{}/model_{:04d}_values.h5".format(file_path, iteration))
-            self._target_net.save_weights("{}/model_{:04d}_target.h5".format(file_path, iteration))
+            torch.save(self._values_model.state_dict(), "{}/model_{:04d}_values.h5".format(file_path, iteration))
+            torch.save(self._target_net.state_dict(), "{}/model_{:04d}_target.h5".format(file_path, iteration))
 
     def load_model(self, file_path='', iteration=None):
         if iteration is not None:
@@ -39,9 +49,8 @@ class AdvantageActorCriticAgent(PolicyGradientAgent):
 
     def update_target_net(self):
         if self._use_target_net:
-            # self._target_net.set_weights(self._values_model.get_weights())
-            # TODO: set weights
-            pass
+            if self._use_target_net:
+                self._target_net.load_state_dict(self._model.state_dict())
 
     def train_agent(self, batch_size=32, beta=0.001, normalize_rewards=False,
                     num_games=1, reward_clip=False):
@@ -55,8 +64,7 @@ class AdvantageActorCriticAgent(PolicyGradientAgent):
 
         # normzlize the rewards for training stability, does not work in practice
         if normalize_rewards:
-            if ((r == r[0][0]).sum() == r.shape[0]):
-                # std dev is zero
+            if (r == r[0][0]).sum() == r.shape[0]:
                 r -= r
             else:
                 r = (r - np.mean(r)) / np.std(r)
@@ -66,10 +74,10 @@ class AdvantageActorCriticAgent(PolicyGradientAgent):
 
         # calculate V values
         if self._use_target_net:
-            next_s_pred = self._target_net.predict_on_batch(next_s_prepared)
+            next_s_pred = self._target_net(next_s_prepared)
         else:
-            next_s_pred = self._values_model.predict_on_batch(next_s_prepared)
-        s_pred = self._values_model.predict_on_batch(s_prepared)
+            next_s_pred = self._values_model(next_s_prepared)
+        s_pred = self._values_model(s_prepared)
 
         # prepare target
         future_reward = self._gamma * next_s_pred * (1 - done)
@@ -80,21 +88,23 @@ class AdvantageActorCriticAgent(PolicyGradientAgent):
         critic_target = r + future_reward
 
         model = self._full_model
-        with tf.GradientTape() as tape:
-            model_out = model(s_prepared)
-            policy = tf.nn.softmax(model_out[0])
-            log_policy = tf.nn.log_softmax(model_out[0])
-            # calculate loss
-            J = tf.reduce_sum(tf.multiply(advantage, log_policy)) / num_games
-            entropy = -tf.reduce_sum(tf.multiply(policy, log_policy)) / num_games
-            actor_loss = -J - beta * entropy
-            critic_loss = mean_huber_loss(critic_target, model_out[1])
-            loss = actor_loss + critic_loss
-        # get the gradients
-        grads = tape.gradient(loss, model.trainable_weights)
-        # grads = [tf.clip_by_value(grad, -5, 5) for grad in grads]
-        # run the optimizer
-        self._optimizer.apply_gradients(zip(grads, model.trainable_variables))
+        loss = self.torch_trainer(model, advantage, critic_target)
+        return loss
 
-        loss = [loss.numpy(), actor_loss.numpy(), critic_loss.numpy()]
-        return loss[0] if len(loss) == 1 else loss
+    def torch_trainer(self, model, inputs, labels, lr=0.0005):
+        [w, b] = model.parameters().to(self.device)
+        y_pred = model(inputs)
+        model.loss = model(y_pred, labels).to(self.device)
+
+        # compute gradients (grad)
+        model.loss.backward()
+        with torch.no_grad():
+            w -= w.grad * lr
+            b -= b.grad * lr
+            w.grad.zero_()
+            b.grad.zero_()
+
+        model.optimizer.zero_grad()
+        model.optimizer.step()
+        loss = model.loss.item()
+        return loss

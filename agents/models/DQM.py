@@ -1,31 +1,62 @@
+import json
 import torch.nn as nn
+from torch import optim
+from agents.Agent import mean_huber_loss
 import torch
 import torch.nn.functional as F
 
 
 class DQM(nn.Module):
 
-    def __init__(self):
+    def __init__(self, version, device, frames=4, n_actions=4, board_size=10, buffer_size=10000,
+                 gamma=0.99, use_target_net=True):
         super(DQM, self).__init__()
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self.conv1 = nn.Conv2d(in_channels=2, out_channels=16, kernel_size=3, padding='same').to(self.device)
-        self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3).to(self.device)
-        self.conv3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=5).to(self.device)
+        self.version = version
+        self._n_frames = frames
+        self._n_actions = n_actions
+        self._board_size = board_size
 
-        self.flatten = nn.Flatten().to(self.device)
-        self.fc1 = nn.Linear(64 * 4 * 4, 64).to(self.device)
-        self.out = nn.Linear(64, 4).to(self.device)
+        with open('model_config/{:s}.json'.format(self.version), 'r') as f:
+            m = json.loads(f.read())
+
+        out_channels_prev = m['frames']
+        layers = []
+        self.device = device
+
+        for layer in m['model']:
+            l = m['model'][layer]
+            if ('Conv2D' in layer):
+                if "padding" in l:
+                    padding = l["padding"]
+                    layers.append(
+                        nn.Conv2d(in_channels=out_channels_prev, out_channels=l["filters"],
+                                  kernel_size=l["kernel_size"],
+                                  padding=padding))
+                else:
+                    layers.append(
+                        nn.Conv2d(in_channels=out_channels_prev, out_channels=l["filters"],
+                                  kernel_size=l["kernel_size"]))
+                if "activation" in l:
+                    layers.append(nn.ReLU())
+                out_channels_prev = l["filters"]
+            if 'Flatten' in layer:
+                layers.append(nn.Flatten())
+                out_channels_prev = 64 * 4 * 4
+            if 'Dense' in layer:
+                layers.append(nn.Linear(out_channels_prev, l['units']))
+                if "activation" in l:
+                    layers.append(nn.ReLU())
+
+        self.conv = nn.Sequential(*layers).to(device)
+        self.out = nn.Linear(64, self._n_actions).to(device)
+
+        self.criterion = mean_huber_loss
+        self.optimizer = optim.RMSprop(self.parameters(), lr=0.0005)
+
+        self.criterion = mean_huber_loss
+        self.to(device)
 
     def forward(self, t):
-        t = self.conv1(t)
-        t = F.relu(t)
-        t = self.conv2(t)
-        t = F.relu(t)
-        t = self.conv3(t)
-        t = F.relu(t)
-        t = self.flatten(t)
-        t = self.fc1(t)
-        t = F.relu(t)
-        t = self.out(t)
-        t = F.softmax(t, dim=-1)
-        return t
+        t.to(self.device)
+        t = self.conv(t)
+        return self.out(t)

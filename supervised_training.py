@@ -8,7 +8,7 @@ from tqdm import tqdm
 import time
 from utils import play_game2
 from game_environment import SnakeNumpy
-from agents.agent import BreadthFirstSearchAgent, SupervisedLearningAgent
+from agents.Agent import BreadthFirstSearchAgent, SupervisedLearningAgent
 import json
 
 # some global variables

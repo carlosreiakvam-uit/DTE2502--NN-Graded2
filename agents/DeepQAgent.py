@@ -1,9 +1,7 @@
-from agents.agent import Agent
+from agents.Agent import Agent
 from agents.models.DQM import DQM
 import numpy as np
 import torch
-import torch.optim as optim
-import torch.nn as nn
 
 
 class DeepQAgent(Agent):
@@ -14,7 +12,7 @@ class DeepQAgent(Agent):
         self.frames = frames
         self.buffer_size = buffer_size
         self.gamma = gamma
-        self.n_actions = n_actions
+        self.n_actions = 4
         self.use_target_net = use_target_net
         self.version = version
 
@@ -23,99 +21,94 @@ class DeepQAgent(Agent):
 
     def reset_models(self):
         self._model = self._agent_model()
-        if (self._use_target_net):
+        if self._use_target_net:
             self._target_net = self._agent_model()
             self.update_target_net()
 
     def _agent_model(self):
-        # self.model = DQAModel(version=self.version, frames=self._n_frames, n_actions=self.n_actions,
-        #                      board_size=self.board_size, buffer_size=self.buffer_size,
-        #                      gamma=self.gamma, use_target_net=self.use_target_net)
-        self.model = DQM()
-
+        self.model = DQM(version=self.version, frames=self._n_frames, n_actions=self.n_actions,
+                         board_size=self.board_size, buffer_size=self.buffer_size,
+                         gamma=self.gamma, use_target_net=self.use_target_net, device=self.device)
         return self.model.to(self.device)
-
-    def getModel(self):
-        return self._model
-
-    def update_target_net(self):  # true
-        self._target_net.load_state_dict(
-            self._model.state_dict())  # from simon # sets weights for _target_net from _model
 
     def train_agent(self, batch_size=32, num_games=1, reward_clip=False):
 
         s, a, r, next_s, done, legal_moves = self._buffer.sample(batch_size)
-        if reward_clip:  # true
-            r = np.sign(r)
-        current_model = self._target_net if self._use_target_net else self._model  # goes through
+        if reward_clip: r = np.sign(r)
 
+        # Set current model to target model if in use
+        current_model = self._target_net if self._use_target_net else self._model
+
+        # Get the next outputs
         next_model_outputs = self._get_model_outputs(next_s, current_model)
 
+        # Calculate the current discounted reward
         discounted_reward = r + (self._gamma * np.max(
-            np.where(legal_moves == 1, next_model_outputs.cpu().detach(), -np.inf),
-            axis=1).reshape(-1, 1)) * (1 - done)
+            np.where(legal_moves == 1, next_model_outputs.cpu().detach(), -np.inf), axis=1)
+                                 .reshape(-1, 1)) * (1 - done)
 
+        # Translate discounted reward into a Tensor
         discounted_reward = torch.from_numpy(discounted_reward).to(self.device)
 
-        target = self._get_model_outputs(s)
+        # Get targets from model
+        targets = self._get_model_outputs(s)
 
+        # Translate actions to Tensor and calculate new targets
         a = torch.tensor(a).to(self.device)
+        targets = (1 - a) * targets + a * discounted_reward
 
-        target = (1 - a) * target + a * discounted_reward
+        # Transpose states to shape (64,2,10,10)
+        s = (np.transpose(self._normalize(s), (0, 3, 1, 2)))
 
-        s_normal = self._normalize(s)
-        s_normal_trans_tensor = torch.from_numpy(np.transpose(s_normal, (0, 3, 1, 2))).to(self.device)
-        loss = self.train_model(s_normal_trans_tensor, target, self._model)  # var current_model sist
-        # loss = round(loss, 5)
+        # Translate states to Tensor
+        s = torch.from_numpy(s).to(self.device)
+
+        # Calculate the loss with the given model using states and targets
+        loss = self.train_model(s, targets, self._model)
         return loss
 
-    def train_model(self, board, target, model):
-        # optimizer = model.optimizer
-        optimizer = optim.RMSprop(model.parameters(), lr=0.0005)
+    def train_model(self, board, targets, model):
 
+        # Use optimizer as declared in model (RMSProp)
+        optimizer = model.optimizer
+
+        # Set model to state of train
         model.train()
 
-        labels = target.type(torch.float32).to(self.device)
+        # Translate target to Tensor and set type to float32
+        targets = targets.type(torch.float32).to(self.device)
+
+        # Get predictions from the model and translate to Tensor
         predicts = model(board).to(self.device)
 
-        # Zero the gradients
+
         optimizer.zero_grad()
 
-        # model.loss = model.criterion(predicts, labels)
-        model.loss = nn.functional.huber_loss(predicts, labels, reduction='mean')
+        # Set the model loss via the models criterion (mean huber loss)
+        model.loss = model.criterion(predicts, targets)
+
+        # Run backprop
         model.loss.backward()
 
-        # Adjust learning weights
+        # Step the Optimizer a tiny step in the direction of smallest loss
         optimizer.step()
 
-        # self.optimizer = optim.RMSprop(model.parameters(), lr=0.0005)
-        # model.train()
-        # # targets = torch.from_numpy(targets)  # is 64, should be 32
-        #
-        # targets = targets.type(torch.float32).to(self.device)
-        #
-        # states = np.transpose(states, (0, 3, 1, 2))  # alternative to stack reshape
-        # states = torch.from_numpy(states).to(self.device)
-        # preds = self._model(states).to(self.device)
-        # # loss = torch.sqrt(F.mse_loss(preds, labels))  # RMSE
-        # self.optimizer.zero_grad()
-        # model.loss = nn.functional.huber_loss(preds, targets, reduction='mean')
-        # model.loss.backward()
-        # self.optimizer.step()
-        return model.loss.item()
+        # Get and return loss from model
+        loss = model.loss.item()
+        return loss
+
+    def update_target_net(self):  # true
+        if self._use_target_net:
+            self._target_net.load_state_dict(self._model.state_dict())
 
     def _get_model_outputs(self, board, model=None):
         board = self._prepare_input(board)
-
         if model is None:  # false
             model = self._model.to(self.device)
         model_outputs = model((torch.tensor(np.transpose(board, (0, 3, 1, 2)))).to(self.device))
-
         return model_outputs
 
     def _prepare_input(self, board):
-        if (board.ndim == 3):  # always false?
-            board = board.reshape((1,) + self._input_shape)
         board = self._normalize(board.copy())
         return board.copy()
 
@@ -134,9 +127,7 @@ class DeepQAgent(Agent):
         else:
             iteration = 0
         torch.save(self._model.state_dict(), "{}/model_{:04d}.h5".format(file_path, iteration))
-        # torch.save(self._model, f="{}/model_{:04d}.h5".format(file_path, iteration))
         if self._use_target_net:
-            # torch.save(self._target_net, f="{}/model_{:04d}_target.h5".format(file_path, iteration))
             torch.save(self._target_net.state_dict(), "{}/model_{:04d}_target.h5".format(file_path, iteration))
 
     def load_model(self, file_path='', iteration=None):
@@ -149,13 +140,9 @@ class DeepQAgent(Agent):
         self._model.load_state_dict((torch.load("{}/model_{:04d}.h5".format(file_path, iteration))))
 
         if self._use_target_net:
-            # torch.load("{}/model_{:04d}_target.h5".format(file_path, iteration))
-            # self._target_net.load("{}/model_{:04d}_target.h5".format(file_path, iteration))
             self._target_net.load_state_dict(torch.load("{}/model_{:04d}_target.h5".format(file_path, iteration)))
 
-        # print("Couldn't locate models at {}, check provided path".format(file_path))
-
-    def get_action_proba(self, board, values=None):
+    def get_action_proba(self, board):
         model_outputs = self._get_model_outputs(board, self._model)
         model_outputs = np.clip(model_outputs, -10, 10)
         model_outputs = model_outputs - model_outputs.max(axis=1).reshape((-1, 1))

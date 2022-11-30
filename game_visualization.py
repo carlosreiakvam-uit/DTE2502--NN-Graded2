@@ -6,8 +6,6 @@ from game_environment import Snake
 from utils import visualize_game
 import json
 
-# import keras.backend as K
-
 # some global variables
 version = 'v17.1'
 
@@ -20,9 +18,7 @@ with open('model_config/{:s}.json'.format(version), 'r') as f:
     n_actions = m['n_actions']
     obstacles = bool(m['obstacles'])
 
-#
-# iteration_list = [163500]
-iteration_list = [20000]
+iteration_list = [100000]
 max_time_limit = 398
 
 # setup the environment
@@ -37,17 +33,12 @@ agent = DeepQAgent(board_size=board_size, frames=frames,
                    n_actions=n_actions, buffer_size=10, version=version)
 # agent = PolicyGradientAgent(board_size=board_size, frames=frames, n_actions=n_actions, buffer_size=10)
 # agent = AdvantageActorCriticAgent(board_size=board_size, frames=frames, n_actions=n_actions, buffer_size=10)
-# agent = HamiltonianCycleAgent(board_size=board_size, frames=frames, n_actions=n_actions, buffer_size=10)
-# agent = BreadthFirstSearchAgent(board_size=board_size, frames=frames, n_actions=n_actions, buffer_size=10)
+
 
 for iteration in iteration_list:
-    agent.load_model(file_path='models/{:s}'.format(version), iteration=iteration)
+    agent.load_model(file_path='./models/{:s}'.format(version), iteration=iteration)
 
     for i in range(5):
-        # original
-        # visualize_game(env, agent,
-        path = 'images/game_visual_{:s}_{:d}_14_ob_{:d}.mp4'.format(version, iteration, i),
-        #     debug=False, animate=True, fps=12)
         visualize_game(env, agent,
                        path='images/game_visual_{:s}_{:d}_14_ob_{:d}.mp4'.format(version, iteration, i),
                        debug=False, animate=True, fps=12)
