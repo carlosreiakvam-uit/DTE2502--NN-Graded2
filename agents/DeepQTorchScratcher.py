@@ -39,12 +39,36 @@ import torch.nn as nn
 class DeepQTorchScratcher(Agent):
     def __init__(self, board_size, frames, buffer_size, n_actions, version, use_target_net=True, gamma=0.99):
         super().__init__(board_size, frames, buffer_size, gamma, n_actions, use_target_net, version)
+
+        # fra simon
+        self.board_size = board_size
+        self.frames = frames
+        self.buffer_size = buffer_size
+        self.gamma = gamma
+        self.n_actions = n_actions
+        self.use_target_net = use_target_net
+        self.version = version
+
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self._model = Network().to(self.device)
-        self._target_net = self._model
-        self._target_net.to(self.device)
-        self.update_target_net()
-        self._input_shape = (self._board_size, self._board_size, self._n_frames)
+        self.reset_models()
+        # self._model = Network().to(self.device)
+        # self._target_net = self._model
+        # self._target_net.to(self.device)
+        # self.update_target_net()
+        # self._input_shape = (self._board_size, self._board_size, self._n_frames)
+
+    def reset_models(self):
+        self._model = self._agent_model()
+        if (self._use_target_net):
+            self._target_net = self._agent_model()
+            self.update_target_net()
+
+    def _agent_model(self):
+        self.model = Network(version=self.version, frames=self._n_frames, n_actions=self.n_actions,
+                             board_size=self.board_size, buffer_size=self.buffer_size,
+                             gamma=self.gamma, use_target_net=self.use_target_net)
+
+        return self.model.to(self.device)
 
     def getModel(self):
         return self._model
@@ -74,7 +98,9 @@ class DeepQTorchScratcher(Agent):
 
         target = (1 - a) * target + a * discounted_reward
 
-        loss = self.train_model(self._normalize(s), target, self._model)  # var current_model sist
+        s_normal = self._normalize(s)
+        s_normal_trans_tensor = torch.from_numpy(np.transpose(s_normal, (0, 3, 1, 2))).to(self.device)
+        loss = self.train_model(s_normal_trans_tensor, target, self._model)  # var current_model sist
         # loss = round(loss, 5)
         return loss
 
@@ -88,12 +114,12 @@ class DeepQTorchScratcher(Agent):
         # Zero the gradients
         optimizer.zero_grad()
 
-        model.loss = model.criterion(predicts, labels)
+        # model.loss = model.criterion(predicts, labels)
+        model.loss = nn.functional.huber_loss(predicts, labels, reduction='mean')
         model.loss.backward()
 
         # Adjust learning weights
         optimizer.step()
-
 
         # self.optimizer = optim.RMSprop(model.parameters(), lr=0.0005)
         # model.train()
@@ -127,7 +153,7 @@ class DeepQTorchScratcher(Agent):
         return board.copy()
 
     def _normalize(self, board):
-        return board.astype(np.float32) / 4  # normalization
+        return board.astype(np.float32) / 4.0  # normalization
 
     def move(self, board, legal_moves, value=None):
         # use the agent model to make the predictions
@@ -161,3 +187,11 @@ class DeepQTorchScratcher(Agent):
             self._target_net.load_state_dict(torch.load("{}/model_{:04d}_target.h5".format(file_path, iteration)))
 
         # print("Couldn't locate models at {}, check provided path".format(file_path))
+
+    def get_action_proba(self, board, values=None):
+        model_outputs = self._get_model_outputs(board, self._model)
+        model_outputs = np.clip(model_outputs, -10, 10)
+        model_outputs = model_outputs - model_outputs.max(axis=1).reshape((-1, 1))
+        model_outputs = np.exp(model_outputs)
+        model_outputs = model_outputs / model_outputs.sum(axis=1).reshape((-1, 1))
+        return model_outputs
