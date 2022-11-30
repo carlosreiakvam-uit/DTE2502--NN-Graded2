@@ -99,6 +99,9 @@ class DeepQTorchScratcher(Agent):
             np.where(legal_moves == 1, next_model_outputs.cpu().detach(), -np.inf),
             axis=1).reshape(-1, 1)) * (1 - done)
 
+        discounted_reward = torch.from_numpy(discounted_reward).to(self.device)
+
+
         # create the target variable, only the column with action has different value <- original comment
         # This is another go at get_model_outout, only this time, only state is input
         # state is 64x10x10x2, aka 64 examples of a game
@@ -110,7 +113,6 @@ class DeepQTorchScratcher(Agent):
         # discounted reward is what it sounds like
         # target = target.cpu().detach().numpy()
         # target = target.astype(np.float32)
-        discounted_reward = torch.from_numpy(discounted_reward).to(self.device)
         a = torch.tensor(a).to(self.device)
 
         target = (1 - a) * target + a * discounted_reward
@@ -124,6 +126,8 @@ class DeepQTorchScratcher(Agent):
         # loss = self._model.train_on_batch(self._normalize_board(s), target) # tf
         # s = s.detach().numpy()
         # s = nn.functional.normalize(s)
+        s = self._normalize(s)
+
         loss = self.train_model(self._normalize(s), target, self._model)  # var current_model sist
         # loss = round(loss, 5)
         return loss
@@ -154,14 +158,14 @@ class DeepQTorchScratcher(Agent):
     def _prepare_input(self, board):
         if (board.ndim == 3):  # always false?
             board = board.reshape((1,) + self._input_shape)
-        board = self._normalize(board)
+        board = self._normalize(board.copy())
 
         # board = torch.from_numpy(board)
         # board = nn.functional.normalize(board)
         # board = torch.reshape(board, (64, 2, 10, 10)) # do not use, does not move data in shape
         # board = torch.stack([board[batch_idx].T for batch_idx in range(board.shape[0])]) # stack and retain shape
         # board = board.permute(*torch.arange(-board.ndim 1, -1, -1)) # recommended py docu but gives wrong shape
-        return board
+        return board.copy()
 
     def _normalize(self, board):
         return board.astype(np.float32) / 4  # normalization
