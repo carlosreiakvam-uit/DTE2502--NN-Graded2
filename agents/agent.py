@@ -61,14 +61,11 @@ class Agent:
     def _row_col_to_point(self, row, col):
         return row * self._board_size + col
 
+    def huber_loss(self, y_true, y_pred, delta=1):
+        error = (y_true - y_pred)
+        quad_error = 0.5 * torch.square(error)
+        lin_error = delta * (torch.abs(error) - 0.5 * delta)
+        return torch.where(torch.abs(error) < delta, quad_error, lin_error)
 
-def huber_loss(y_true, y_pred, delta=1):
-    error = (y_true - y_pred)
-    quad_error = 0.5 * tf.math.square(error)
-    lin_error = delta * (tf.math.abs(error) - 0.5 * delta)
-    # quadratic error, linear error
-    return tf.where(tf.math.abs(error) < delta, quad_error, lin_error)
-
-
-def mean_huber_loss(y_true, y_pred, delta=1):
-    return tf.reduce_mean(huber_loss(y_true, y_pred, delta))
+    def mean_huber_loss(self, y_true, y_pred, delta=1):
+        return torch.mean(self.huber_loss(y_true, y_pred, delta))
