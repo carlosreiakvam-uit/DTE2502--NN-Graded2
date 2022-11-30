@@ -20,7 +20,8 @@ with open('model_config/{:s}.json'.format(version), 'r') as f:
     obstacles = bool(m['obstacles'])
 
 #
-iteration_list = [163500]
+# iteration_list = [163500]
+iteration_list = [20000]
 max_time_limit = 398
 
 # setup the environment

@@ -108,6 +108,7 @@ for index in tqdm(range(episodes)):
     # check performance every once in a while
     # This actually plays the game in order to check for various data
     # notice that loss is not calculated here, as it is already calculated above
+    # NOTICE that this is using env2
     if (index + 1) % log_frequency == 0:
         current_rewards, current_lengths, current_games = \
             play_game2(env2, agent, n_actions, n_games=games_eval, epsilon=-1,

@@ -24,8 +24,14 @@ class Network(nn.Module):
         self.out = nn.Linear(64, 4).to(self.device)
 
     def forward(self, t):
+        a = type(t)
+        if 'numpy' in str(type(t)):
+            t = np.transpose(t, (0, 3, 1, 2)) # alternative to stack reshape
+        else:
+            t = t.cpu().detach().numpy()
+            t = np.transpose(t, (0, 3, 1, 2)) # alternative to stack reshape
         t = torch.Tensor(t).to(self.device)
-        t = torch.stack([t[batch_idx].T for batch_idx in range(t.shape[0])])  # stokke om shape and retain values
+        # t = torch.stack([t[batch_idx].T for batch_idx in range(t.shape[0])])  # stokke om shape and retain values
         t = self.conv1(t)
         t = F.relu(t)
         t = self.conv2(t)
@@ -87,10 +93,10 @@ class DeepQTorchScratcher(Agent):
         # the where part is reshaped to a single column
         # and finally multiplied with (1-done) which either yields 1 or 0
         #   meaning if not done, it makes the whole part 0
-        tensor_copy = next_model_outputs.cpu().clone().detach().numpy()
+        #        tensor_copy = next_model_outputs.cpu().clone().detach().numpy() # previoulsy used thinking that its bad to do calculation with original value 😅
         # tensor_copy = tensor_copy.detach().numpy()
         discounted_reward = r + (self._gamma * np.max(
-            np.where(legal_moves == 1, tensor_copy, -np.inf),
+            np.where(legal_moves == 1, next_model_outputs.cpu().detach(), -np.inf),
             axis=1).reshape(-1, 1)) * (1 - done)
 
         # create the target variable, only the column with action has different value <- original comment
@@ -102,8 +108,11 @@ class DeepQTorchScratcher(Agent):
         # a is a 64x4 tensor
         # target is the model outputs, or labels if you will
         # discounted reward is what it sounds like
-        target = target.cpu().detach().numpy()
-        target = target.astype(np.float32)
+        # target = target.cpu().detach().numpy()
+        # target = target.astype(np.float32)
+        discounted_reward = torch.from_numpy(discounted_reward).to(self.device)
+        a = torch.tensor(a).to(self.device)
+
         target = (1 - a) * target + a * discounted_reward
 
         # EXTREMELY IMPORTANT STEP HERE
@@ -113,21 +122,20 @@ class DeepQTorchScratcher(Agent):
         # target is used for labels y <--- !!!
         # the training provides, as indicated, the loss which we intend to minimize
         # loss = self._model.train_on_batch(self._normalize_board(s), target) # tf
-        s = self._prepare_input(s)
         # s = s.detach().numpy()
         # s = nn.functional.normalize(s)
-        loss = self.train_model(s, target, current_model)
+        loss = self.train_model(self._normalize(s), target, self._model)  # var current_model sist
         # loss = round(loss, 5)
         return loss
 
-    def train_model(self, board, labels, model):
-        self.optimizer = optim.RMSprop(model.parameters(), lr=0.0005)
-        labels = torch.from_numpy(labels)  # is 64, should be 32
-        labels = labels.type(torch.float32).to(self.device)
-        board = torch.from_numpy(board).to(self.device)
-        preds = self._model(board).to(self.device)
+    def train_model(self, states, targets, model):
+        self.optimizer = optim.RMSprop(model.parameters(), lr=0.0005, eps=1e-7)
+        # targets = torch.from_numpy(targets)  # is 64, should be 32
+        targets = targets.type(torch.float32).to(self.device)
+        states = torch.from_numpy(states).to(self.device)
+        preds = self._model(states).to(self.device)
         # loss = torch.sqrt(F.mse_loss(preds, labels))  # RMSE
-        loss = nn.functional.huber_loss(preds, labels, reduction='mean')
+        loss = nn.functional.huber_loss(preds, targets, reduction='mean')
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
@@ -144,7 +152,9 @@ class DeepQTorchScratcher(Agent):
         return model_outputs
 
     def _prepare_input(self, board):
-        board = board.astype(np.float32) / 4  # normalization
+        if (board.ndim == 3):  # always false?
+            board = board.reshape((1,) + self._input_shape)
+        board = self._normalize(board)
 
         # board = torch.from_numpy(board)
         # board = nn.functional.normalize(board)
@@ -152,6 +162,9 @@ class DeepQTorchScratcher(Agent):
         # board = torch.stack([board[batch_idx].T for batch_idx in range(board.shape[0])]) # stack and retain shape
         # board = board.permute(*torch.arange(-board.ndim 1, -1, -1)) # recommended py docu but gives wrong shape
         return board
+
+    def _normalize(self, board):
+        return board.astype(np.float32) / 4  # normalization
 
     # def _normalize_board(self, board):
     # original is to return copy of numpy board cast to type np.float32 divided by 4 (probably because of 4 actions)
@@ -163,12 +176,9 @@ class DeepQTorchScratcher(Agent):
             assert isinstance(iteration, int), "iteration should be an integer"
         else:
             iteration = 0
-        # self._model.save_weights("{}/model_{:04d}.h5".format(file_path, iteration))
-        # self._model.save()
-        torch.save(self._model, f="{}/model_{:04d}_target.h5".format(file_path, iteration))
+        torch.save(self._model, f="{}/model_{:04d}.h5".format(file_path, iteration))
         if self._use_target_net:
             torch.save(self._target_net, f="{}/model_{:04d}_target.h5".format(file_path, iteration))
-            # self._target_net.save_weights("{}/model_{:04d}_target.h5".format(file_path, iteration))
 
     def move(self, board, legal_moves, value=None):
         # use the agent model to make the predictions
