@@ -1,6 +1,6 @@
 import numpy as np
 from agents.PolicyGradientAgent import PolicyGradientAgent
-from agents.agent import mean_huber_loss
+from agents.agent import Agent
 
 
 class AdvantageActorCriticAgent(PolicyGradientAgent):

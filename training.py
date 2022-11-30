@@ -4,7 +4,7 @@ import time
 from utils import play_game2
 from game_environment import SnakeNumpy
 import torch
-from agents.DeepQTorchScratcher import DeepQTorchScratcher
+from agents.DeepQAgent import DeepQAgent
 # from agents.simon_agent import DeepQLearningAgent as DeepQTorchScratcher
 # from agents.simon_agent import DeepQLearningAgent as DeepQTorchScratcher
 # from agents.AdvantageActorCriticAgent import AdvantageActorCriticAgent
@@ -33,8 +33,8 @@ games_eval = 8
 agent_type = 'DQN'
 
 if agent_type == 'DQN':
-    agent = DeepQTorchScratcher(board_size=board_size, frames=frames, n_actions=n_actions,
-                                buffer_size=buffer_size, version=version)
+    agent = DeepQAgent(board_size=board_size, frames=frames, n_actions=n_actions,
+                       buffer_size=buffer_size, version=version)
     epsilon, epsilon_end = 1, 0.01
     reward_type = 'current'
     sample_actions = False
@@ -63,10 +63,6 @@ env = SnakeNumpy(board_size=board_size, frames=frames,
 env2 = SnakeNumpy(board_size=board_size, frames=frames,
                   max_time_limit=max_time_limit, games=games_eval,
                   frame_mode=True, obstacles=obstacles, version=version)
-
-
-
-
 
 model_logs = {'iteration': [], 'reward_mean': [],
               'length_mean': [], 'games': [], 'loss': []}
