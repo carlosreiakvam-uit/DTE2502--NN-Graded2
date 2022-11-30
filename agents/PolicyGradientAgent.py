@@ -6,7 +6,7 @@ class PolicyGradientAgent(DeepQAgent):
     def __init__(self, board_size=10, frames=4, buffer_size=10000, gamma=0.99, n_actions=3, use_target_net=False,
                  version=''):
         super().__init__(board_size, frames, buffer_size, gamma, n_actions, use_target_net, version)
-        self._actor_optimizer = tf.keras.optimizer.Adam(1e-6)
+        # self._actor_optimizer = tf.keras.optimizer.Adam(1e-6)
 
     def _agent_model(self):
         input_board = Input((self._board_size, self._board_size, self._n_frames,))

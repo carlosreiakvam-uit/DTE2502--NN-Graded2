@@ -36,7 +36,7 @@ class AACM(nn.Module):
             action_logits = F.relu(action_logits)
             state_values = self.fc2(t)
             state_values = F.relu(state_values)
-            return action_logits, state_values
+            return [action_logits, state_values]
         elif model_type == 'model_values':
             state_values = self.fc2(t)
             state_values = F.relu(state_values)
