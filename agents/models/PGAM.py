@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 
+# Policy Gradient Actor Model Network
 
 class PGAM(nn.Module):
 

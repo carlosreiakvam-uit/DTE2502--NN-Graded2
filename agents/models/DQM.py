@@ -2,10 +2,8 @@ import json
 import torch.nn as nn
 from torch import optim
 from agents.Agent import mean_huber_loss
-import torch
-import torch.nn.functional as F
 
-
+# Deep Q Agent Model Network
 class DQM(nn.Module):
 
     def __init__(self, version, device, frames=4, n_actions=4, board_size=10, buffer_size=10000,
